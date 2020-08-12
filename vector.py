@@ -27,6 +27,9 @@ class Point:
     def update(self):
         pass
 
+    def __str__(self):
+        return str(self.x) + "," + str(self.y) + "," + str(self.z)
+
 
 class EyePoint:
     def __init__(self, projection_point, side='left'):
@@ -39,16 +42,19 @@ class EyePoint:
         self.update()
 
     def update(self):
-        b = sqrt(self.projection_point.x ** 2 + self.projection_point.y ** 2)
+        b = sqrt(self.projection_point.x ** 2 + self.projection_point.z ** 2)
         th = acos(self.viewing_circle_radius / b)
-        d = atan2(self.projection_point.y, self.projection_point.x)
+        d = atan2(self.projection_point.z, self.projection_point.x)
         if self.side == 'left':
-            d = d + th
-        else:
             d = d - th
+        else:
+            d = d + th
 
         self.x = self.viewing_circle_radius * cos(d)
-        self.y = self.viewing_circle_radius * sin(d)
+        self.z = self.viewing_circle_radius * sin(d)
+
+    def __str__(self):
+        return str(self.x) + "," + str(self.y) + "," + str(self.z)
 
 
 def calculate_angle_between_vectors(v1, v2):
