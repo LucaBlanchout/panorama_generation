@@ -47,7 +47,7 @@ right_eye_pano = np.zeros((height, width, channels))
 eye_panos = [left_eye_pano, right_eye_pano]
 pano_canvas = np.zeros((height, width))
 
-rho = 1
+rho = 5
 for index, x in np.ndenumerate(pano_canvas):
     col = index[1]
     row = index[0]
@@ -62,17 +62,19 @@ for index, x in np.ndenumerate(pano_canvas):
         try:
             angles = vector.calculate_angles_eye_cameras(eye_vectors[i], camera_vectors)
             sorted_angles = sorted(angles)
-            min_angles_index = [angles.index(sorted_angles[0]), angles.index(sorted_angles[1])]
+            # min_angles_index = [angles.index(sorted_angles[0]), angles.index(sorted_angles[1])]
+            min_angles_index = [angles.index(sorted_angles[0])]
 
             for j in min_angles_index:
                 theta, phi, rho = camera_vectors[j].get_spherical_vector()
-                # if row == height / 2:
-                #     print(theta, phi)
                 u, v = coordinates.latlong_from_spherical(phi, theta, width, height)
 
-                eye_panos[i][row, col] = panos[j][int(v), int(u)]
+                eye_panos[i][row, col] += panos[j][int(v), int(u)]
         except (ValueError, IndexError) as e:
             pass
+
+# eye_panos[0] = eye_panos[0] // 2
+# eye_panos[1] = eye_panos[1] // 2
 
 
 left_pano = Image.fromarray(eye_panos[0].astype(np.uint8))
