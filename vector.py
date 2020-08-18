@@ -1,21 +1,38 @@
-from math import sqrt, sin, cos, acos, atan2, degrees
+from math import sqrt, sin, cos, asin, acos, atan, atan2, degrees
 
 
 class Vector:
     def __init__(self, projection_point, other_point):
         self.projection_point = projection_point
         self.other_point = other_point
+        self.vx = None
+        self.vy = None
+        self.vz = None
+        self.magnitude = None
         self._vector = None
+        self.update()
 
     def update(self):
         self.other_point.update()
-        self._vector = [self.projection_point.x - self.other_point.x,
-                        self.projection_point.y - self.other_point.y,
-                        self.projection_point.z - self.other_point.z]
+        self.vx = self.projection_point.x - self.other_point.x
+        self.vy = self.projection_point.y - self.other_point.y
+        self.vz = self.projection_point.z - self.other_point.z
 
-    def get_vector(self):
+        self.magnitude = sqrt((self.vx ** 2) + (self.vy ** 2) + (self.vz ** 2))
+
+        self._vector = [self.vx / self.magnitude,
+                        self.vy / self.magnitude,
+                        self.vz / self.magnitude]
+
+    def get_cartesian_vector(self):
         self.update()
         return self._vector
+
+    def get_spherical_vector(self):
+        theta = asin(self.vy)
+        phi = atan2(self.vx, -self.vz)
+
+        return theta, phi, 1
 
 
 class Point:
@@ -64,8 +81,8 @@ def calculate_angle_between_vectors(v1, v2):
     def length(v):
         return sqrt(dot_product(v, v))
 
-    v1 = v1.get_vector()
-    v2 = v2.get_vector()
+    v1 = v1.get_cartesian_vector()
+    v2 = v2.get_cartesian_vector()
 
     ang_rad = acos(dot_product(v1, v2) / (length(v1) * length(v2)))
 
@@ -75,3 +92,12 @@ def calculate_angle_between_vectors(v1, v2):
         return 360 - ang_deg
     else:
         return ang_deg
+
+
+def calculate_angles_eye_cameras(eye_vector, camera_vectors):
+    angles = []
+    for camera_vector in camera_vectors:
+        angle = calculate_angle_between_vectors(eye_vector, camera_vector)
+        angles.append(angle)
+
+    return angles
