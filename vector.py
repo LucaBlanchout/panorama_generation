@@ -9,7 +9,8 @@ class Vector:
         self.vy = None
         self.vz = None
         self.magnitude = None
-        self._vector = None
+        self.theta = None
+        self.phi = None
         self.update()
 
     def update(self):
@@ -20,19 +21,20 @@ class Vector:
 
         self.magnitude = sqrt((self.vx ** 2) + (self.vy ** 2) + (self.vz ** 2))
 
-        self._vector = [self.vx / self.magnitude,
-                        self.vy / self.magnitude,
-                        self.vz / self.magnitude]
+        self.vx /= self.magnitude
+        self.vy /= self.magnitude
+        self.vz /= self.magnitude
+
+        self.theta = asin(self.vy)
+        self.phi = atan2(self.vx, -self.vz)
 
     def get_cartesian_vector(self):
         self.update()
-        return self._vector
+        return [self.vx, self.vy, self.vz]
 
     def get_spherical_vector(self):
-        theta = asin(self.vy)
-        phi = atan2(self.vx, -self.vz)
-
-        return theta, phi, 1
+        self.update()
+        return self.theta, self.phi
 
 
 class Point:
