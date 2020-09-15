@@ -36,6 +36,9 @@ class Vector:
         self.update()
         return self.theta, self.phi
 
+    def __str__(self):
+        return '{:f}'.format(self.vx) + ", " + '{:f}'.format(self.vy) + ", " + '{:f}'.format(self.vz)
+
 
 class Point:
     def __init__(self, x=0., y=0., z=0.):
@@ -47,7 +50,7 @@ class Point:
         pass
 
     def __str__(self):
-        return str(self.x) + "," + str(self.y) + "," + str(self.z)
+        return '{:f}'.format(self.x) + ", " + '{:f}'.format(self.y) + ", " + '{:f}'.format(self.z)
 
 
 class EyePoint:
@@ -61,19 +64,22 @@ class EyePoint:
         self.update()
 
     def update(self):
-        b = sqrt(self.projection_point.x ** 2 + self.projection_point.z ** 2)
-        th = acos(self.viewing_circle_radius / b)
-        d = atan2(self.projection_point.z, self.projection_point.x)
-        if self.side == 'left':
-            d = d - th
-        else:
-            d = d + th
+        try:
+            b = sqrt(self.projection_point.x ** 2 + self.projection_point.z ** 2)
+            th = acos(self.viewing_circle_radius / b)
+            d = atan2(self.projection_point.z, self.projection_point.x)
+            if self.side == 'left':
+                d = d - th
+            else:
+                d = d + th
 
-        self.x = self.viewing_circle_radius * cos(d)
-        self.z = self.viewing_circle_radius * sin(d)
+            self.x = self.viewing_circle_radius * cos(d)
+            self.z = self.viewing_circle_radius * sin(d)
+        except ValueError:
+            pass
 
     def __str__(self):
-        return str(self.x) + "," + str(self.y) + "," + str(self.z)
+        return '{:f}'.format(self.x) + ", " + '{:f}'.format(self.y) + ", " + '{:f}'.format(self.z)
 
 
 def calculate_angle_between_vectors(v1, v2):

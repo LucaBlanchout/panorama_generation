@@ -1,5 +1,5 @@
 import vector
-import coordinates
+import utils
 import numpy as np
 from PIL import Image
 import math
@@ -53,16 +53,15 @@ height, width, channels = panos[0].shape
 rho_range = [4]
 for rho in rho_range:
     print("Starting rho =", rho)
+
     left_eye_pano = np.zeros((height, width, channels))
     right_eye_pano = np.zeros((height, width, channels))
     eye_panos = [left_eye_pano, right_eye_pano]
     pano_canvas = np.zeros((height, width))
 
-    for index, x in np.ndenumerate(pano_canvas):
-        col = index[1]
-        row = index[0]
+    for (row, col), x in np.ndenumerate(pano_canvas):
 
-        theta, phi = coordinates.spherical_from_latlong(col, row, width, height)
+        theta, phi = utils.spherical_from_latlong(col, row, width, height)
 
         projection_point.x = (rho * math.cos(theta) * math.sin(phi))
         projection_point.y = (rho * math.sin(theta))
@@ -76,7 +75,7 @@ for rho in rho_range:
 
                 for j in min_angles_index:
                     theta, phi = camera_vectors[j].get_spherical_vector()
-                    u, v = coordinates.latlong_from_spherical(phi, theta, width, height)
+                    u, v = utils.latlong_from_spherical(phi, theta, width, height)
 
                     eye_panos[i][row, col] += panos[j][int(v), int(u)]
             except (ValueError, IndexError) as e:
@@ -86,9 +85,9 @@ for rho in rho_range:
     eye_panos[1] = eye_panos[1] // cameras_to_keep
 
     left_pano = Image.fromarray(eye_panos[0].astype(np.uint8))
-    left_pano.save(path + "rho_" + str(rho) + "_left_eye.jpg")
+    left_pano.save(path + "old_rho_" + str(rho) + "_left_eye.jpg")
 
     right_pano = Image.fromarray(eye_panos[1].astype(np.uint8))
-    right_pano.save(path + "rho_" + str(rho) + "_right_eye.jpg")
+    right_pano.save(path + "old_rho_" + str(rho) + "_right_eye.jpg")
 
     print("Rho =", str(rho), "is done")
