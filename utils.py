@@ -139,6 +139,21 @@ def calculate_angles_between_vectors(v1, v2):
     return ang_deg
 
 
+def calculate_minimum_angles_and_indexes(eye_angles, cameras_to_keep):
+    min_angles_indexes = np.argpartition(eye_angles, cameras_to_keep)[:, :cameras_to_keep[-1]]
+    min_angles = eye_angles[np.arange(eye_angles.shape[0])[:, None], min_angles_indexes]
+
+    return min_angles, min_angles_indexes
+
+
+def calculate_weights_of_angles(angles, sigma):
+    wis = np.exp(-angles / (sigma ** 2))
+    wjs = np.sum(wis, axis=1).transpose()
+    wis = wis / wjs[:, None]
+
+    return wis
+
+
 def calculate_latlong_position_from_camera_vectors(cameras_vectors_spherical, width, height):
     uvs = []
 
@@ -148,6 +163,9 @@ def calculate_latlong_position_from_camera_vectors(cameras_vectors_spherical, wi
 
         us = (width / 2) * ((phis / math.pi) + 1)
         vs = height * (0.5 - (thetas / math.pi))
+
+        us = np.where(us >= width, width - 1, us)
+        vs = np.where(vs >= height, height - 1, vs)
 
         uvs.append(np.stack((us, vs), axis=1))
 
