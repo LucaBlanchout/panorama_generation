@@ -1,93 +1,99 @@
-import vector
 import utils
 import numpy as np
 from PIL import Image
 import math
 from pathlib import Path
+import time
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
 viewing_circle_radius = 0.032
 optical_centres_radius = 0.15
 
-width_resolution = 4096
-number_of_cameras = 24
-cameras_to_keep = 1
+width_resolution = 2048
+number_of_cameras = 12
+cameras_to_keep = 2
+cameras_to_keep = tuple(range(1, cameras_to_keep + 1))
+sigma = 1
 
-path = "out/cameras_" + str(number_of_cameras) + "/keep_" + str(cameras_to_keep) + "/" + str(width_resolution) + "/"
+in_path = 'images/' + str(width_resolution) + "/" + str(number_of_cameras) + '/360render_'
+out_path = "out/" + str(width_resolution) + "/" + str(number_of_cameras) + "/keep_" + str(cameras_to_keep[-1]) + "/"
+Path(out_path).mkdir(parents=True, exist_ok=True)
 
-Path(path).mkdir(parents=True, exist_ok=True)
-
-cameras_angle = []
-panos = []
+camera_angles = []
+base_panos = []
 
 for i in range(number_of_cameras):
-    img = Image.open('images/' + str(width_resolution) + "/" + str(number_of_cameras) + '/360render_' + str(i) + '.jpg')
-    panos.append(np.array(img))
+    img = Image.open(in_path + str(i) + '.jpg')
+    base_panos.append(np.array(img))
 
-    cameras_angle.append(2 * math.pi * i / number_of_cameras)
+    camera_angles.append(2 * math.pi * i / number_of_cameras)
 
-projection_point = vector.Point(0., 0., -1.)
+base_panos = np.array(base_panos)
+height, width, channels = base_panos[0].shape
+rho_range = np.linspace(0.5, 5, 10)
 
-left_eye_point = vector.EyePoint(projection_point, side='left')
-right_eye_point = vector.EyePoint(projection_point, side='right')
-
-left_eye_vector = vector.Vector(projection_point, left_eye_point)
-right_eye_vector = vector.Vector(projection_point, right_eye_point)
-
-eye_vectors = [left_eye_vector, right_eye_vector]
-
-camera_vectors = []
-
-for camera_angle in cameras_angle:
-    camera_point = vector.Point()
-
-    camera_point.x = - optical_centres_radius * math.sin(camera_angle)
-    camera_point.z = - optical_centres_radius * math.cos(camera_angle)
-
-    camera_vectors.append(vector.Vector(projection_point, camera_point))
-
-height, width, channels = panos[0].shape
-
-# rho_range = np.linspace(0.5, 5, 10)
-rho_range = [4]
+timer = time.time()
 for rho in rho_range:
-    print("Starting rho =", rho)
+    print("Starting rho=", rho)
+    panos_side = ['_left_eye.jpg', '_right_eye.jpg']
+    pano_canvas = utils.create_new_pano_canvas(height, width)
 
-    left_eye_pano = np.zeros((height, width, channels))
-    right_eye_pano = np.zeros((height, width, channels))
-    eye_panos = [left_eye_pano, right_eye_pano]
-    pano_canvas = np.zeros((height, width))
+    new_panos_thetas, new_panos_phis = utils.spherical_from_latlong(pano_canvas, width, height)
+    projection_points = utils.create_all_projection_points(rho, new_panos_thetas, new_panos_phis)
 
-    for (row, col), x in np.ndenumerate(pano_canvas):
+    eye_points = utils.create_all_eyes_points(projection_points)
 
-        theta, phi = utils.spherical_from_latlong(col, row, width, height)
+    cameras_vectors_cartesian, cameras_vectors_spherical = utils.create_all_cameras_vectors(projection_points,
+                                                                                            camera_angles,
+                                                                                            optical_centres_radius)
 
-        projection_point.x = (rho * math.cos(theta) * math.sin(phi))
-        projection_point.y = (rho * math.sin(theta))
-        projection_point.z = - (rho * math.cos(theta) * math.cos(phi))
+    new_panos = []
+    min_angles_indexes = []
+    angles_weights = []
+    uvs = []
 
-        for i in range(len(eye_vectors)):
-            try:
-                angles = vector.calculate_angles_eye_cameras(eye_vectors[i], camera_vectors)
-                sorted_angles = sorted(angles)
-                min_angles_index = [angles.index(sorted_angles[k]) for k in range(cameras_to_keep)]
+    for new_pano_index in range(2):
+        new_panos.append(np.zeros((height, width, channels)).reshape((-1, 3)))
 
-                for j in min_angles_index:
-                    theta, phi = camera_vectors[j].get_spherical_vector()
-                    u, v = utils.latlong_from_spherical(phi, theta, width, height)
+        eye_vectors = utils.create_eye_vectors(projection_points, eye_points[new_pano_index])
 
-                    eye_panos[i][row, col] += panos[j][int(v), int(u)]
-            except (ValueError, IndexError) as e:
-                pass
+        angles = []
 
-    eye_panos[0] = eye_panos[0] // cameras_to_keep
-    eye_panos[1] = eye_panos[1] // cameras_to_keep
+        for camera_vectors in cameras_vectors_cartesian:
+            angles.append(utils.calculate_angles_between_vectors(eye_vectors, camera_vectors))
 
-    left_pano = Image.fromarray(eye_panos[0].astype(np.uint8))
-    left_pano.save(path + "old_rho_" + str(rho) + "_left_eye.jpg")
+        angles = np.transpose(np.array(angles))
 
-    right_pano = Image.fromarray(eye_panos[1].astype(np.uint8))
-    right_pano.save(path + "old_rho_" + str(rho) + "_right_eye.jpg")
+        min_angles, min_angles_index = utils.calculate_minimum_angles_and_indexes(angles, cameras_to_keep)
 
-    print("Rho =", str(rho), "is done")
+        min_angles_indexes.append(min_angles_index)
+
+        angles_weights.append(utils.calculate_weights_of_angles(min_angles, sigma))
+
+        best_cameras_vectors_spherical = cameras_vectors_spherical[
+            min_angles_index,
+            np.arange(cameras_vectors_spherical.shape[1])[:, None],
+            :
+        ]
+
+        uvs.append(utils.calculate_latlong_position_from_camera_vectors(
+            best_cameras_vectors_spherical,
+            width,
+            height
+        ))
+
+    for pano_side, new_pano, min_angles_index, angles_weight, uv in zip(panos_side, new_panos, min_angles_indexes,
+                                                                        angles_weights, uvs):
+        for i in range(base_panos.shape[0]):
+            for j in range(cameras_to_keep[-1]):
+                index = np.argwhere(min_angles_index[:, j] == i)
+
+                new_pano[index, :] += (angles_weight[index, j][:, None] * base_panos[i][uv[index, j, 1], uv[index, j, 0], :]).astype(np.uint8)
+
+        eye_pano = Image.fromarray(new_pano.reshape(height, width, channels).astype(np.uint8))
+        save_path = out_path + "rho_" + str(rho) + pano_side
+        eye_pano.save(save_path)
+        print("Saved in :", save_path, "\n")
+
+print("\nTime=", time.time() - timer)

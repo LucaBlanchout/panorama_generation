@@ -4,14 +4,21 @@ import numpy as np
 VIEWING_CIRCLE_RADIUS = 0.032
 
 
-def spherical_from_latlong(u, v, width, height):
+def old_spherical_from_latlong(u, v, width, height):
     phi = math.pi * (2 * u / width - 1)
     theta = math.pi * (-v / height + 0.5)
 
     return theta, phi
 
 
-def spherical_from_latlong_vectorized(arr, width, height):
+def old_latlong_from_spherical(phi, theta, width, height):
+    u = (width / 2) * ((phi / math.pi) + 1)
+    v = height * (0.5 - (theta / math.pi))
+
+    return u, v
+
+
+def spherical_from_latlong(arr, width, height):
     u = arr[:, :, 1]
     v = arr[:, :, 0]
 
@@ -21,14 +28,7 @@ def spherical_from_latlong_vectorized(arr, width, height):
     return thetas, phis
 
 
-def latlong_from_spherical(phi, theta, width, height):
-    u = (width / 2) * ((phi / math.pi) + 1)
-    v = height * (0.5 - (theta / math.pi))
-
-    return u, v
-
-
-def create_canvas(m, n):
+def create_new_pano_canvas(m, n):
     return np.indices((m, n)).transpose(1, 2, 0)
 
 
@@ -70,27 +70,27 @@ def create_all_eyes_points(projection_points):
     return left_eye_points, right_eye_points
 
 
-def create_all_eyes_vectors(projection_points):
-    eye_points = create_all_eyes_points(projection_points)
+def create_eye_vectors(projection_points, eye_point):
+    # eye_points = create_all_eyes_points(projection_points)
 
-    eye_vectors = []
+    # eye_vectors = []
+    #
+    # for eye_point in eye_points:
+    vx = projection_points[:, 0] - eye_point[:, 0]
+    vy = projection_points[:, 1] - eye_point[:, 1]
+    vz = projection_points[:, 2] - eye_point[:, 2]
 
-    for eye_point in eye_points:
-        vx = projection_points[:, 0] - eye_point[:, 0]
-        vy = projection_points[:, 1] - eye_point[:, 1]
-        vz = projection_points[:, 2] - eye_point[:, 2]
+    magnitude = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
 
-        magnitude = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
+    vx /= magnitude
+    vy /= magnitude
+    vz /= magnitude
 
-        vx /= magnitude
-        vy /= magnitude
-        vz /= magnitude
+    eye_vector = np.stack((vx, vy, vz), axis=1)
 
-        eye_vector = np.stack((vx, vy, vz), axis=1)
+    # eye_vectors.append(eye_vector)
 
-        eye_vectors.append(eye_vector)
-
-    return eye_vectors
+    return eye_vector
 
 
 def create_all_cameras_vectors(projection_points, camera_angles, optical_centres_radius):
@@ -169,6 +169,6 @@ def calculate_latlong_position_from_camera_vectors(cameras_vectors_spherical, wi
 
         uvs.append(np.stack((us, vs), axis=1))
 
-    uvs = np.asarray(uvs).transpose((1, 0, 2))
+    uvs = np.array(uvs).transpose((1, 0, 2)).astype(np.int)
 
-    return uvs.astype(int)
+    return uvs
