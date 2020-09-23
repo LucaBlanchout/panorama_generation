@@ -1,0 +1,8 @@
+{
+    "pyr_scale": 0.5,
+    "levels": 5,
+    "winsize": 13,
+    "iters": 15,
+    "poly_expansion": 7,
+    "sd": 1.5
+}

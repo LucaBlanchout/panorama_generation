@@ -11,7 +11,7 @@ viewing_circle_radius = 0.032
 optical_centres_radius = 0.15
 
 width_resolution = 2048
-number_of_cameras = 12
+number_of_cameras = 24
 cameras_to_keep = 2
 cameras_to_keep = tuple(range(1, cameras_to_keep + 1))
 sigma = 1
@@ -35,7 +35,7 @@ rho_range = np.linspace(0.5, 5, 10)
 
 timer = time.time()
 for rho in rho_range:
-    print("Starting rho=", rho)
+    print("Starting rho =", rho)
     panos_side = ['_left_eye.jpg', '_right_eye.jpg']
     pano_canvas = utils.create_new_pano_canvas(height, width)
 
@@ -94,6 +94,8 @@ for rho in rho_range:
         eye_pano = Image.fromarray(new_pano.reshape(height, width, channels).astype(np.uint8))
         save_path = out_path + "rho_" + str(rho) + pano_side
         eye_pano.save(save_path)
-        print("Saved in :", save_path, "\n")
+        print("Saved in :", save_path)
+
+    print("Finished rho =", rho)
 
 print("\nTime=", time.time() - timer)
