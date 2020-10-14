@@ -28,6 +28,33 @@ def spherical_from_latlong(arr, width, height):
     return thetas, phis
 
 
+def spherical_from_latlong_envmap(arr):
+    u = arr[:, :, 0]
+    v = arr[:, :, 1]
+
+    phis = math.pi * (2 * u - 1)
+    thetas = math.pi * (-v + 0.5)
+
+    return thetas, phis
+
+
+def spherical_from_latlong_envmap_2(type, x, y, z):
+    if type == 'latlong':
+        phis = np.arctan2(x, -1 * z)
+        thetas = np.arcsin(y)
+
+        return thetas, phis
+
+    elif type == 'cube':
+        phis = np.arctan2(x, -1 * z)
+        thetas = np.arcsin(y)
+
+        return thetas, phis
+
+    else:
+        pass
+
+
 def create_new_pano_canvas(m, n):
     return np.indices((m, n)).transpose(1, 2, 0)
 
@@ -71,11 +98,6 @@ def create_all_eyes_points(projection_points):
 
 
 def create_eye_vectors(projection_points, eye_point):
-    # eye_points = create_all_eyes_points(projection_points)
-
-    # eye_vectors = []
-    #
-    # for eye_point in eye_points:
     vx = projection_points[:, 0] - eye_point[:, 0]
     vy = projection_points[:, 1] - eye_point[:, 1]
     vz = projection_points[:, 2] - eye_point[:, 2]
@@ -87,8 +109,6 @@ def create_eye_vectors(projection_points, eye_point):
     vz /= magnitude
 
     eye_vector = np.stack((vx, vy, vz), axis=1)
-
-    # eye_vectors.append(eye_vector)
 
     return eye_vector
 
@@ -172,3 +192,55 @@ def calculate_latlong_position_from_camera_vectors(cameras_vectors_spherical, wi
     uvs = np.array(uvs).transpose((1, 0, 2)).astype(np.int)
 
     return uvs
+
+
+def calculate_xyz_position_from_camera_vectors_envmap(cameras_vectors_spherical, mask):
+    xyzs = []
+
+    for i in range(cameras_vectors_spherical.shape[1]):
+        thetas = cameras_vectors_spherical[:, i, 0]
+        phis = cameras_vectors_spherical[:, i, 1]
+
+        xs = (np.cos(thetas) * np.sin(phis))
+        ys = (np.sin(thetas))
+        zs = (np.cos(thetas) * np.cos(phis))
+
+        xyz = np.stack((xs, ys, zs), axis=1).reshape(-1, 3)
+
+        xyz = np.where(mask == 1.0, xyz, 0)
+
+        xyzs.append(xyz)
+
+    xyzs = np.array(xyzs).transpose((1, 0, 2))
+
+    return xyzs
+
+
+def calculate_latlong_position_from_xyz(xyz):
+    # Calculate uv from xyz
+    pass
+
+
+def calculate_latlong_position_from_camera_vectors_envmap(cameras_vectors_spherical, width, height, mask):
+    uvs = []
+
+    for i in range(cameras_vectors_spherical.shape[1]):
+        thetas = cameras_vectors_spherical[:, i, 0]
+        phis = cameras_vectors_spherical[:, i, 1]
+
+        us = (width / 2) * ((phis / math.pi) + 1)
+        vs = height * (0.5 - (thetas / math.pi))
+
+        us = np.where(us >= width, width - 1, us)
+        vs = np.where(vs >= height, height - 1, vs)
+
+        uv = np.stack((us, vs), axis=1)
+
+        uv = np.where(mask == 1.0, uv, 0)
+
+        uvs.append(uv)
+
+    uvs = np.array(uvs).transpose((1, 0, 2)).astype(np.int)
+
+    return uvs
+

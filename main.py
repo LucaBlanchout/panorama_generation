@@ -11,7 +11,7 @@ viewing_circle_radius = 0.032
 optical_centres_radius = 0.15
 
 width_resolution = 2048
-number_of_cameras = 24
+number_of_cameras = 3
 cameras_to_keep = 2
 cameras_to_keep = tuple(range(1, cameras_to_keep + 1))
 sigma = 1
@@ -88,6 +88,11 @@ for rho in rho_range:
         for i in range(base_panos.shape[0]):
             for j in range(cameras_to_keep[-1]):
                 index = np.argwhere(min_angles_index[:, j] == i)
+
+                print(new_pano.shape)
+                print(new_pano[index, :].shape, '\n')
+
+                print(base_panos[i][uv[index, j, 1], uv[index, j, 0], :].shape)
 
                 new_pano[index, :] += (angles_weight[index, j][:, None] * base_panos[i][uv[index, j, 1], uv[index, j, 0], :]).astype(np.uint8)
 
