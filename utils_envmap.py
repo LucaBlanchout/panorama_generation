@@ -1,8 +1,17 @@
 import numpy as np
-import math
 
 VIEWING_CIRCLE_RADIUS = 0.032
 OPTICAL_CENTRES_RADIUS = 0.15
+
+
+def create_all_camera_points(camera_angles):
+    xs = OPTICAL_CENTRES_RADIUS * np.cos(camera_angles)
+    ys = 0 * np.cos(camera_angles)
+    zs = - OPTICAL_CENTRES_RADIUS * np.sin(camera_angles)
+
+    camera_points = np.stack((xs, ys, zs)).transpose()
+
+    return camera_points
 
 
 def create_all_projection_points(rho, x, y, z):
@@ -48,8 +57,8 @@ def create_all_cameras_vectors(projection_points, camera_angles):
     cameras_vectors_spherical = []
 
     for camera_angle in camera_angles:
-        camera_point_x = - OPTICAL_CENTRES_RADIUS * np.sin(camera_angle)
-        camera_point_z = - OPTICAL_CENTRES_RADIUS * np.cos(camera_angle)
+        camera_point_x = OPTICAL_CENTRES_RADIUS * np.cos(camera_angle)
+        camera_point_z = - OPTICAL_CENTRES_RADIUS * np.sin(camera_angle)
 
         vx = projection_points[:, 0] - camera_point_x
         vy = projection_points[:, 1] - 0.
@@ -105,30 +114,18 @@ def calculate_angles_between_vectors(v1, v2):
     return ang_deg
 
 
-def calculate_minimum_angles_indexes(eye_angles, cameras_to_keep):
-    min_angles_indexes = np.argpartition(eye_angles, cameras_to_keep)[:, :cameras_to_keep[-1]]
+def calculate_minimum_angles_and_indexes(eye_angles, cameras_to_keep):
+    min_angles_index = np.argpartition(eye_angles, cameras_to_keep)[:, :cameras_to_keep[-1]]
+    min_angles = eye_angles[np.arange(eye_angles.shape[0])[:, None], min_angles_index]
 
-    return min_angles_indexes
+    return min_angles, min_angles_index
 
-#
-# def calculate_latlong_position_from_camera_vectors(cameras_vectors_spherical, width, height):
-#     uvs = []
-#
-#     for i in range(cameras_vectors_spherical.shape[1]):
-#         x = cameras_vectors_spherical[:, i, 0]
-#         y = cameras_vectors_spherical[:, i, 1]
-#         z = cameras_vectors_spherical[:, i, 2]
-#
-#
-#
-#         us = (width / 2) * ((phis / math.pi) + 1)
-#         vs = height * (0.5 - (thetas / math.pi))
-#
-#         us = np.where(us >= width, width - 1, us)
-#         vs = np.where(vs >= height, height - 1, vs)
-#
-#         uvs.append(np.stack((us, vs), axis=1))
-#
-#     uvs = np.array(uvs).transpose((1, 0, 2)).astype(np.int)
-#
-#     return uvs
+
+def calculate_angles_ratio(min_angles):
+    min_angles_ratio = min_angles[:, 0] / (min_angles[:, 0] + min_angles[:, 1])
+
+    return min_angles_ratio
+
+
+def calculate_intermediate_points(camera_points, min_angles_ratio, min_angles_index):
+    pass
