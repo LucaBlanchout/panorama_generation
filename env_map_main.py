@@ -36,17 +36,12 @@ for i in range(number_of_cameras):
         e = e.convertTo('cube')
     env_map_panos.append(e)
 
-    cubemap = Image.fromarray((e.data * 255).astype(np.uint8))
-
-    save_path = out_path + "original_" + str(i) + '.jpg'
-    cubemap.save(save_path)
-
-    # TODO : Make this to work for all case. This only work for 3 cameras
-    camera_angles.append((2 * math.pi * i / number_of_cameras) + (5 * math.pi / 6))
+    angle = (1 + 2 * i) * math.pi / number_of_cameras + math.pi / 2
+    camera_angles.append(angle)
 
 height, width, channels = env_map_panos[0].data.shape
 
-rho_range = [3]
+rho_range = np.linspace(0.5, 5, 10)
 
 for rho in rho_range:
     print("Starting rho =", rho)
@@ -117,15 +112,20 @@ for rho in rho_range:
 
         new_pano = (new_pano.reshape(height, width, channels) * 255 / cameras_to_keep).astype(np.uint8)
 
-        eye_pano_cube = Image.fromarray(new_pano)
-        save_path = out_path + "cubemap_rho_" + str(rho) + pano_side
-        eye_pano_cube.save(save_path)
-        print("Saved cubemap representation in :", save_path)
+        if envmap_type == 'cube':
+            eye_pano_cube = Image.fromarray(new_pano)
+            save_path = out_path + "cubemap_rho_" + str(rho) + pano_side
+            eye_pano_cube.save(save_path)
+            print("Saved cubemap representation in :", save_path)
 
-        eye_pano_latlong = EnvironmentMap(new_pano, 'cube')
-        eye_pano_latlong = eye_pano_latlong.convertTo('latlong')
-        eye_pano_latlong = Image.fromarray(eye_pano_latlong.data.astype(np.uint8))
-        save_path = out_path + "rho_" + str(rho) + pano_side
-        eye_pano_latlong.save(save_path)
+            eye_pano_latlong = EnvironmentMap(new_pano, 'cube')
+            eye_pano_latlong = eye_pano_latlong.convertTo('latlong')
+            eye_pano_latlong = Image.fromarray(eye_pano_latlong.data.astype(np.uint8))
+            save_path = out_path + "rho_" + str(rho) + pano_side
+            eye_pano_latlong.save(save_path)
+        else:
+            eye_pano_latlong = Image.fromarray(new_pano)
+            save_path = out_path + "rho_" + str(rho) + pano_side
+            eye_pano_latlong.save(save_path)
 
         print("Saved latlong representation in :", save_path)
