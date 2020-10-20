@@ -40,7 +40,11 @@ for i in range(number_of_cameras):
         e = e.convertTo('cube')
     env_map_panos.append(e)
 
-    panos_opencv.append(cv2.cvtColor((e.data * 255).astype(np.uint8), cv2.COLOR_RGB2BGR))
+    img = cv2.cvtColor((e.data * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+
+    cv2.imwrite(out_path + "original_" + str(i) + '.jpg', img)
+
+    panos_opencv.append(img)
 
     angle = (1 + 2 * i) * math.pi / number_of_cameras + math.pi / 2
     camera_angles.append(angle)
@@ -50,9 +54,10 @@ height, width, channels = env_map_panos[0].data.shape
 optical_flows = optical_flow.calculate_optical_flows_between_panoramas(panos_opencv, out_path)
 
 rho_range = np.linspace(0.5, 5, 10)
+# rho_range = [3.0]
 
 for rho in rho_range:
-    print("Starting rho =", rho)
+    print("\nStarting rho =", rho)
     pano_side_list = ['_left_eye.jpg', '_right_eye.jpg']
 
     camera_points = utils_envmap.create_all_camera_points(camera_angles)
@@ -71,8 +76,7 @@ for rho in rho_range:
     min_angles_ratio_list = []
     best_cameras_vectors_cartesian_list = []
 
-    # for new_pano_index in range(2):
-    for new_pano_index in range(1):
+    for new_pano_index in range(2):
         new_pano_list.append(np.zeros((height, width, channels)).reshape((-1, 3)))
 
         eye_vectors = utils_envmap.create_eye_vectors(projection_points, eye_points[new_pano_index])

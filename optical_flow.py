@@ -56,7 +56,6 @@ def warp_flow(img, flow):
     return res
 
 
-# TODO : Don't calculate twice every optical flow
 def calculate_optical_flows_between_panoramas(panos, out_path):
     pano_greyscale = []
     for pano in panos:
@@ -76,11 +75,11 @@ def calculate_optical_flows_between_panoramas(panos, out_path):
             pano_2_grey,
             None,
             pyr_scale=0.5,
-            levels=4,
-            winsize=400,
+            levels=3,
+            winsize=30,
             iterations=3,
-            poly_n=7,
-            poly_sigma=1.5,
+            poly_n=5,
+            poly_sigma=1.2,
             flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN
         )
 
