@@ -5,6 +5,8 @@ import math
 from pathlib import Path
 from skylibs.envmap import EnvironmentMap
 import matplotlib.pyplot as plt
+import cv2
+import optical_flow
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
@@ -24,11 +26,13 @@ envmap_type = 'cube'
 in_path = 'images/' + str(width_resolution) + "/" + str(number_of_cameras) + '/360render_'
 out_path = "out/envmap/" + envmap_type + '/' + str(width_resolution) + "/" + str(number_of_cameras) + "/keep_" + str(
     cameras_to_keep_range[-1]) + "/"
-Path(out_path).mkdir(parents=True, exist_ok=True)
+out_path_flow = out_path + 'optical_flow'
+Path(out_path_flow).mkdir(parents=True, exist_ok=True)
 
 camera_angles = []
 
 env_map_panos = []
+panos_opencv = []
 
 for i in range(number_of_cameras):
     e = EnvironmentMap(in_path + str(i) + '.jpg', 'latlong')
@@ -36,10 +40,14 @@ for i in range(number_of_cameras):
         e = e.convertTo('cube')
     env_map_panos.append(e)
 
+    panos_opencv.append(cv2.cvtColor((e.data * 255).astype(np.uint8), cv2.COLOR_RGB2BGR))
+
     angle = (1 + 2 * i) * math.pi / number_of_cameras + math.pi / 2
     camera_angles.append(angle)
 
 height, width, channels = env_map_panos[0].data.shape
+
+optical_flows = optical_flow.calculate_optical_flows_between_panoramas(panos_opencv, out_path)
 
 rho_range = np.linspace(0.5, 5, 10)
 
@@ -63,7 +71,8 @@ for rho in rho_range:
     min_angles_ratio_list = []
     best_cameras_vectors_cartesian_list = []
 
-    for new_pano_index in range(2):
+    # for new_pano_index in range(2):
+    for new_pano_index in range(1):
         new_pano_list.append(np.zeros((height, width, channels)).reshape((-1, 3)))
 
         eye_vectors = utils_envmap.create_eye_vectors(projection_points, eye_points[new_pano_index])
@@ -107,6 +116,9 @@ for rho in rho_range:
 
                 u = (u * width).astype(np.int)
                 v = (v * height).astype(np.int)
+
+                u = np.where(u >= width, width - 1, u)
+                v = np.where(v >= height, height - 1, v)
 
                 new_pano[index, :] += env_map_panos[i].data[v, u, :][:, None]
 

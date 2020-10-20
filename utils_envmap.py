@@ -1,4 +1,7 @@
 import numpy as np
+import itertools
+import cv2
+import matplotlib.pyplot as plt
 
 VIEWING_CIRCLE_RADIUS = 0.032
 OPTICAL_CENTRES_RADIUS = 0.15
@@ -128,4 +131,22 @@ def calculate_angles_ratio(min_angles):
 
 
 def calculate_intermediate_points(camera_points, min_angles_ratio, min_angles_index):
-    pass
+    intermediate_points = np.empty((min_angles_ratio.shape[0], 3))
+
+    camera_permutation_indices = list(itertools.permutations(range(len(camera_points)), 2))
+    for permutation_index in camera_permutation_indices:
+        permutation_index = np.array(permutation_index)
+        indices = np.argwhere((min_angles_index == permutation_index).all(axis=1))
+
+        alphas = min_angles_ratio[indices]
+        inv_alphas = 1 - min_angles_ratio[indices]
+
+        xs = alphas * camera_points[permutation_index[0]][0] + inv_alphas * camera_points[permutation_index[1]][0]
+        ys = alphas * camera_points[permutation_index[0]][1] + inv_alphas * camera_points[permutation_index[1]][1]
+        zs = alphas * camera_points[permutation_index[0]][2] + inv_alphas * camera_points[permutation_index[1]][2]
+
+        intermediate_points[indices, 0] = xs
+        intermediate_points[indices, 1] = ys
+        intermediate_points[indices, 2] = zs
+
+    return intermediate_points
