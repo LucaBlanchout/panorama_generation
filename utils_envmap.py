@@ -1,7 +1,5 @@
 import numpy as np
 import itertools
-import cv2
-import matplotlib.pyplot as plt
 
 VIEWING_CIRCLE_RADIUS = 0.032
 OPTICAL_CENTRES_RADIUS = 0.15

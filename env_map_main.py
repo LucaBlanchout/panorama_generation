@@ -51,7 +51,7 @@ for i in range(number_of_cameras):
 
 height, width, channels = env_map_panos[0].data.shape
 
-optical_flows = optical_flow.calculate_optical_flows_between_panoramas(panos_opencv, out_path)
+# optical_flows = optical_flow.calculate_optical_flows_between_panoramas(panos_opencv, out_path)
 
 rho_range = np.linspace(0.5, 5, 10)
 # rho_range = [3.0]
@@ -70,6 +70,7 @@ for rho in rho_range:
 
     camera_vectors_cartesian_coordinates, camera_vectors_spherical_coordinates = utils_envmap.create_all_cameras_vectors(
         projection_points, camera_angles)
+
 
     new_pano_list = []
     min_angles_index_list = []
