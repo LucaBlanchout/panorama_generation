@@ -147,8 +147,6 @@ class GeneratedPanorama:
             self.intermediate_points[indices, 2] = zs
 
     def calculate_best_cameras_vectors(self, cameras_vectors):
-        print(cameras_vectors.shape)
-        print(self.min_angles_indexes.shape)
         self.best_cameras_vectors = cameras_vectors[
                 self.min_angles_indexes,
                 np.arange(cameras_vectors.shape[1])[:, None],

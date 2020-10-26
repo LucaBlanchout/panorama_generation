@@ -47,7 +47,7 @@ generated_panorama_container = GeneratedPanoramaContainer(
     out_path
 )
 
-rho_range = [3.0]
+rho_range = np.linspace(0.5, 5, 10)
 for rho in rho_range:
     print("\nStarting rho =", rho)
 
