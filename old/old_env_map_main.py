@@ -1,4 +1,4 @@
-import utils_envmap
+from old import utils_envmap
 import numpy as np
 from PIL import Image
 import math
@@ -6,7 +6,6 @@ from pathlib import Path
 from skylibs.envmap import EnvironmentMap
 import matplotlib.pyplot as plt
 import cv2
-import optical_flow
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
