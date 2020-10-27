@@ -5,12 +5,14 @@ import cv2
 import numpy as np
 import itertools
 from PIL import Image
+from pathlib import Path
 
 
 class BasePanorama:
-    def __init__(self, impath, envmap_type='latlong', optical_centres_radius=0.15):
+    def __init__(self, impath, base_out_path='out/', envmap_type='latlong'):
         self.envmap = EnvironmentMap(impath, 'latlong')
         self.type = envmap_type
+        self.base_out_path = base_out_path
 
         if self.type == 'cube':
             self.envmap = self.envmap.convertTo('cube')
@@ -22,10 +24,14 @@ class BasePanorama:
 
         self.optical_flows = {}
 
+    def write_pano(self, pano_number):
+        cv2.imwrite(self.base_out_path + 'base_' + str(pano_number) + '.jpg', self.bgr_img)
+
 
 class BasePanoramaContainer:
-    def __init__(self, base_panoramas=None):
+    def __init__(self, base_panoramas=None, base_out_path='out/'):
         self.base_panoramas = base_panoramas if base_panoramas is not None else []
+        self.base_out_path = base_out_path
 
     def __len__(self):
         return len(self.base_panoramas)
@@ -47,6 +53,10 @@ class BasePanoramaContainer:
         x, y, z, valid = self[0].envmap.worldCoordinates()
         return x, y, z, valid
 
+    def write_base_panoramas(self):
+        for i, base_panorama in enumerate(self):
+            base_panorama.write_pano(i)
+
     def calculate_optical_flows(self):
         permutation_indexes = list(itertools.permutations(range(len(self)), 2))
 
@@ -57,23 +67,26 @@ class BasePanoramaContainer:
             opt_flow = optical_flow.OpticalFlow(
                 base_pano_1.grey_img,
                 base_pano_2.grey_img,
-                (pano_1_index, pano_2_index)
+                (pano_1_index, pano_2_index),
+                self.base_out_path
             )
 
             base_pano_1.optical_flows[pano_2_index] = opt_flow
 
 
 class GeneratedPanorama:
-    def __init__(self, rho, side, shape, cameras_to_keep, envmap_type, out_path):
+    def __init__(self, rho, side, shape, camera_container, cameras_to_keep, envmap_type, base_out_path):
         self.rho = rho
         self.side = side
         self.data = np.zeros(shape).reshape((-1, 3))
         self.shape = shape
-        self.envmap_type = envmap_type
-        self.out_path = out_path
 
+        self.camera_container = camera_container
         self.cameras_to_keep = cameras_to_keep
         self.cameras_to_keep_range = tuple(range(1, cameras_to_keep + 1))
+
+        self.envmap_type = envmap_type
+        self.base_out_path = base_out_path
 
         self.eye_points = None
         self.eye_vectors = None
@@ -100,7 +113,7 @@ class GeneratedPanorama:
 
         self.eye_vectors = eye_vectors
 
-    def calculate_angles_eyes_cameras(self, cameras_vectors):
+    def calculate_angles_eyes_cameras(self):
         def dot_product(vector1, vector2):
             return np.sum((vector1 * vector2), axis=1)
 
@@ -108,13 +121,12 @@ class GeneratedPanorama:
             return np.sqrt(dot_product(v, v))
 
         angles = []
-        for camera_vectors in cameras_vectors:
+        for camera_vectors in self.camera_container.get_cameras_vectors_cartesian():
             ang_rad = np.arccos(dot_product(self.eye_vectors, camera_vectors) / length(self.eye_vectors) * length(camera_vectors))
 
             ang_deg = np.degrees(ang_rad) % 360
 
-            # TODO : See if this cause problems. Is not assigned.
-            np.where(ang_deg - 180 >= 0, 360 - ang_deg, ang_deg)
+            ang_deg = np.where(ang_deg - 180 >= 0, 360 - ang_deg, ang_deg)
 
             angles.append(ang_deg)
 
@@ -125,11 +137,13 @@ class GeneratedPanorama:
         self.min_angles_indexes = np.argpartition(self.angles_eyes_cameras, self.cameras_to_keep_range)[:, :self.cameras_to_keep_range[-1]]
         self.min_angles = self.angles_eyes_cameras[np.arange(self.angles_eyes_cameras.shape[0])[:, None], self.min_angles_indexes]
 
-    def calculate_intermediate_points(self, camera_coordinates):
+    def calculate_intermediate_points(self):
         self.min_angles_ratio = self.min_angles[:, 0] / (self.min_angles[:, 0] + self.min_angles[:, 1])
         self.intermediate_points = np.empty((self.min_angles_ratio.shape[0], 3))
 
-        camera_permutation_indices = list(itertools.permutations(range(len(camera_coordinates)), 2))
+        cameras_coordinates = self.camera_container.get_cameras_coordinates()
+
+        camera_permutation_indices = list(itertools.permutations(range(len(cameras_coordinates)), 2))
 
         for permutation_index in camera_permutation_indices:
             permutation_index = np.array(permutation_index)
@@ -138,15 +152,17 @@ class GeneratedPanorama:
             alphas = self.min_angles_ratio[indices]
             inv_alphas = 1 - self.min_angles_ratio[indices]
 
-            xs = alphas * camera_coordinates[permutation_index[0]][0] + inv_alphas * camera_coordinates[permutation_index[1]][0]
-            ys = alphas * camera_coordinates[permutation_index[0]][1] + inv_alphas * camera_coordinates[permutation_index[1]][1]
-            zs = alphas * camera_coordinates[permutation_index[0]][2] + inv_alphas * camera_coordinates[permutation_index[1]][2]
+            xs = alphas * cameras_coordinates[permutation_index[0]][0] + inv_alphas * cameras_coordinates[permutation_index[1]][0]
+            ys = alphas * cameras_coordinates[permutation_index[0]][1] + inv_alphas * cameras_coordinates[permutation_index[1]][1]
+            zs = alphas * cameras_coordinates[permutation_index[0]][2] + inv_alphas * cameras_coordinates[permutation_index[1]][2]
 
             self.intermediate_points[indices, 0] = xs
             self.intermediate_points[indices, 1] = ys
             self.intermediate_points[indices, 2] = zs
 
-    def calculate_best_cameras_vectors(self, cameras_vectors):
+    def calculate_best_cameras_vectors(self):
+        cameras_vectors = self.camera_container.get_cameras_vectors_cartesian()
+
         self.best_cameras_vectors = cameras_vectors[
                 self.min_angles_indexes,
                 np.arange(cameras_vectors.shape[1])[:, None],
@@ -176,27 +192,36 @@ class GeneratedPanorama:
 
         self.data = (self.data.reshape(self.shape) * 255 / self.cameras_to_keep).astype(np.uint8)
 
-        if self.envmap_type == 'cube':
-            pano_cube = Image.fromarray(self.data)
-            save_path = self.out_path + "cubemap_rho_" + str(self.rho) + '_' + self.side + '.jpg'
-            pano_cube.save(save_path)
+        self.write_data()
+
+    def write_data(self):
+        out_path_latlong = self.base_out_path + 'latlong/'
+        Path(out_path_latlong).mkdir(parents=True, exist_ok=True)
+
+        if self.envmap_type == 'latlong':
+            panorama_latlong = Image.fromarray(self.data)
+            save_path = out_path_latlong + "rho_" + str(self.rho) + '_' + self.side + '.jpg'
+            panorama_latlong.save(save_path)
+            print("Saved latlong representation in :", save_path)
+
+        elif self.envmap_type == 'cube':
+            panorama_cube = Image.fromarray(self.data)
+            out_path_cube = self.base_out_path + 'cubemap/'
+            Path(out_path_cube).mkdir(parents=True, exist_ok=True)
+            save_path = out_path_cube + "cubemap_rho_" + str(self.rho) + '_' + self.side + '.jpg'
+            panorama_cube.save(save_path)
             print("Saved cubemap representation in :", save_path)
 
-            pano_latlong = EnvironmentMap(self.data, 'cube')
-            pano_latlong = pano_latlong.convertTo('latlong')
-            pano_latlong = Image.fromarray(pano_latlong.data.astype(np.uint8))
-            save_path = self.out_path + "rho_" + str(self.rho) + '_' + self.side + '.jpg'
-            pano_latlong.save(save_path)
-        else:
-            pano_latlong = Image.fromarray(self.data)
-            save_path = self.out_path + "rho_" + str(self.rho) + '_' + self.side + '.jpg'
-            pano_latlong.save(save_path)
-
-        print("Saved latlong representation in :", save_path)
+            panorama_latlong = EnvironmentMap(self.data, 'cube')
+            panorama_latlong = panorama_latlong.convertTo('latlong')
+            panorama_latlong = Image.fromarray(panorama_latlong.data.astype(np.uint8))
+            save_path = out_path_latlong + "rho_" + str(self.rho) + '_' + self.side + '.jpg'
+            panorama_latlong.save(save_path)
+            print("Saved latlong representation in :", save_path)
 
 
 class GeneratedPanoramaContainer:
-    def __init__(self, base_panorama_container, camera_container, cameras_to_keep, envmap_type='latlong', out_path='out/', rho=1.0, viewing_circle_radius=0.032):
+    def __init__(self, base_panorama_container, camera_container, cameras_to_keep, envmap_type='latlong', base_out_path='out/', rho=1.0, viewing_circle_radius=0.032):
         self.side = ['left', 'right']
         self.generated_panoramas_dict = {}
         self.rho = rho
@@ -208,9 +233,10 @@ class GeneratedPanoramaContainer:
                 rho,
                 side,
                 self.base_panorama_container.base_panorama_shape,
+                self.camera_container,
                 cameras_to_keep,
                 envmap_type,
-                out_path
+                base_out_path
             )
 
         self.viewing_circle_radius = viewing_circle_radius
@@ -287,9 +313,8 @@ class GeneratedPanoramaContainer:
 
     def calculate_angles_between_eyes_and_cameras_vectors(self):
         for side, generated_panorama in self.generated_panoramas_dict.items():
-            generated_panorama.calculate_angles_eyes_cameras(self.camera_container.get_cameras_vectors_cartesian())
+            generated_panorama.calculate_angles_eyes_cameras()
 
     def calculate_best_cameras_vectors(self):
-        cameras_vectors_cartesian = self.camera_container.get_cameras_vectors_cartesian()
         for side, generated_panorama in self.generated_panoramas_dict.items():
-            generated_panorama.calculate_best_cameras_vectors(cameras_vectors_cartesian)
+            generated_panorama.calculate_best_cameras_vectors()

@@ -1,8 +1,9 @@
-import numpy as np
-import math
-from pathlib import Path
 from panorama import BasePanorama, BasePanoramaContainer, GeneratedPanoramaContainer
 from camera import Camera, CameraContainer
+
+import numpy as np
+import math
+
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
@@ -13,11 +14,9 @@ cameras_to_keep = 2
 envmap_type = 'cube'
 
 in_path = 'images/' + str(width_resolution) + "/" + str(number_of_cameras) + '/360render_'
-out_path = "out/" + envmap_type + '/' + str(width_resolution) + "/" + str(number_of_cameras) + "/keep_" + str(cameras_to_keep) + "/"
-out_path_flow = out_path + 'optical_flow'
-Path(out_path_flow).mkdir(parents=True, exist_ok=True)
+base_out_path = "out/" + envmap_type + '/' + str(width_resolution) + "/" + str(number_of_cameras) + "/keep_" + str(cameras_to_keep) + "/"
 
-base_panorama_container = BasePanoramaContainer()
+base_panorama_container = BasePanoramaContainer(base_out_path=base_out_path + 'flow/')
 camera_container = CameraContainer()
 
 for i in range(number_of_cameras):
@@ -33,18 +32,20 @@ for i in range(number_of_cameras):
     base_panorama_container.append(
         BasePanorama(
             impath,
+            base_out_path,
             envmap_type=envmap_type
         )
     )
 
-# base_panorama_container.calculate_optical_flows()
+base_panorama_container.write_base_panoramas()
+base_panorama_container.calculate_optical_flows()
 
 generated_panorama_container = GeneratedPanoramaContainer(
     base_panorama_container,
     camera_container,
     cameras_to_keep,
     envmap_type,
-    out_path
+    base_out_path
 )
 
 rho_range = np.linspace(0.5, 5, 10)
