@@ -6,11 +6,13 @@ import numpy as np
 import itertools
 from PIL import Image
 from pathlib import Path
+from scipy.ndimage.interpolation import map_coordinates
 
 
 class BasePanorama:
-    def __init__(self, impath, base_out_path='out/', envmap_type='latlong'):
-        self.envmap = EnvironmentMap(impath, 'latlong')
+    def __init__(self, index, in_path, base_out_path='out/', envmap_type='latlong'):
+        self.index = index
+        self.envmap = EnvironmentMap(in_path + str(self.index) + '.jpg', 'latlong')
         self.type = envmap_type
         self.base_out_path = base_out_path
 
@@ -24,8 +26,8 @@ class BasePanorama:
 
         self.optical_flows = {}
 
-    def write_pano(self, pano_number):
-        cv2.imwrite(self.base_out_path + 'base_' + str(pano_number) + '.jpg', self.bgr_img)
+    def write_pano(self):
+        cv2.imwrite(self.base_out_path + 'base_' + str(self.index) + '.jpg', self.bgr_img)
 
 
 class BasePanoramaContainer:
@@ -54,8 +56,8 @@ class BasePanoramaContainer:
         return x, y, z, valid
 
     def write_base_panoramas(self):
-        for i, base_panorama in enumerate(self):
-            base_panorama.write_pano(i)
+        for base_panorama in self:
+            base_panorama.write_pano()
 
     def calculate_optical_flows(self):
         permutation_indexes = list(itertools.permutations(range(len(self)), 2))
@@ -68,10 +70,38 @@ class BasePanoramaContainer:
                 base_pano_1.grey_img,
                 base_pano_2.grey_img,
                 (pano_1_index, pano_2_index),
-                self.base_out_path
+                self.base_out_path + 'flow/'
             )
 
             base_pano_1.optical_flows[pano_2_index] = opt_flow
+
+    def interpolate_base_panoramas(self):
+        def shift_img(img, flow, alpha):
+            xx, yy = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+
+            xx_shifted = (xx - (flow[:, :, 0] * alpha)).astype(np.float32)
+            yy_shifted = (yy - (flow[:, :, 1] * alpha)).astype(np.float32)
+
+            shifted_coords = np.array([yy_shifted.flatten(), xx_shifted.flatten()])
+            shifted_img = np.ones_like(img)
+            for d in range(img.shape[2]):
+                shifted_img[:, :, d] = np.reshape(map_coordinates(img[:, :, d], shifted_coords),
+                                                  (img.shape[0], img.shape[1]))
+
+            return shifted_img
+
+        for base_panorama in self:
+            for opt_flow_key, opt_flow in base_panorama.optical_flows.items():
+                for alpha in np.around(np.linspace(0, 1, 11), 1):
+                    img_1 = base_panorama.bgr_img
+                    img_2 = self[opt_flow_key].bgr_img
+
+                    shift_1 = shift_img(img_1, opt_flow.flow, alpha)
+                    shift_2 = shift_img(img_2, self[opt_flow_key].optical_flows[base_panorama.index].flow, 1 - alpha)
+
+                    out = (1 - alpha) * shift_1 + alpha * shift_2
+
+                    cv2.imwrite(self.base_out_path + 'flow/interpolation/' + str(base_panorama.index) + '_to_' + str(self[opt_flow_key].index) + '_interpolated_' + str(alpha) + '.jpg', out)
 
 
 class GeneratedPanorama:

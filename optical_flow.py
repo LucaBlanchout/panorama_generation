@@ -14,7 +14,7 @@ class OpticalFlow:
         self.vector_directions_image = None
 
         self.out_path = out_path
-        Path(self.out_path).mkdir(parents=True, exist_ok=True)
+        Path(self.out_path + 'interpolation/').mkdir(parents=True, exist_ok=True)
 
         self.calculate_flow()
         self.calculate_bgr()
@@ -23,17 +23,30 @@ class OpticalFlow:
         self.write_bgr()
 
     def calculate_flow(self):
+        # self.flow = cv2.calcOpticalFlowFarneback(
+        #     self.pano_1_grey,
+        #     self.pano_2_grey,
+        #     None,
+        #     pyr_scale=0.5,
+        #     levels=3,
+        #     winsize=30,
+        #     iterations=3,
+        #     poly_n=5,
+        #     poly_sigma=1.2,
+        #     flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN
+        # )
+
         self.flow = cv2.calcOpticalFlowFarneback(
             self.pano_1_grey,
             self.pano_2_grey,
             None,
             pyr_scale=0.5,
-            levels=3,
-            winsize=30,
-            iterations=3,
-            poly_n=5,
-            poly_sigma=1.2,
-            flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN
+            levels=5,
+            winsize=15,
+            iterations=20,
+            poly_n=7,
+            poly_sigma=1.5,
+            flags=0
         )
 
     def calculate_bgr(self):
