@@ -1,4 +1,5 @@
-from panorama import BasePanorama, BasePanoramaContainer, GeneratedPanoramaContainer
+from base_panorama import BasePanorama, BasePanoramaContainer
+from generated_panorama import GeneratedPanoramaContainer
 from camera import Camera, CameraContainer
 
 import numpy as np
@@ -7,7 +8,7 @@ import math
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
-width_resolution = 1024
+width_resolution = 2048
 number_of_cameras = 3
 cameras_to_keep = 2
 # envmap_type = 'latlong'
@@ -38,21 +39,22 @@ for i in range(number_of_cameras):
     )
 
 base_panorama_container.write_base_panoramas()
-base_panorama_container.calculate_optical_flows()
-base_panorama_container.interpolate_base_panoramas()
 
-# generated_panorama_container = GeneratedPanoramaContainer(
-#     base_panorama_container,
-#     camera_container,
-#     cameras_to_keep,
-#     envmap_type,
-#     base_out_path
-# )
-#
-# rho_range = np.linspace(0.5, 5, 10)
-# for rho in rho_range:
-#     print("\nStarting rho =", rho)
-#
-#     generated_panorama_container.set_rho_and_generate_panoramas(rho)
-#
-#     print("Finished rho=", rho)
+generated_panorama_container = GeneratedPanoramaContainer(
+    base_panorama_container,
+    camera_container,
+    cameras_to_keep,
+    envmap_type,
+    base_out_path
+)
+
+generated_panorama_container.calculate_optical_flows()
+generated_panorama_container.interpolate_base_panoramas()
+
+rho_range = np.linspace(0.5, 5, 10)
+for rho in rho_range:
+    print("\nStarting rho =", rho)
+
+    generated_panorama_container.set_rho_and_generate_panoramas(rho)
+
+    print("Finished rho=", rho)
