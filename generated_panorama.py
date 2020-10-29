@@ -1,77 +1,12 @@
-from skylibs.envmap import EnvironmentMap
+import utils
 import optical_flow
+from skylibs.envmap import EnvironmentMap
 
-import cv2
 import numpy as np
 import itertools
+import cv2
 from PIL import Image
 from pathlib import Path
-
-
-class BasePanorama:
-    def __init__(self, impath, base_out_path='out/', envmap_type='latlong'):
-        self.envmap = EnvironmentMap(impath, 'latlong')
-        self.type = envmap_type
-        self.base_out_path = base_out_path
-
-        if self.type == 'cube':
-            self.envmap = self.envmap.convertTo('cube')
-
-        self.bgr_img = cv2.cvtColor((self.envmap.data * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
-        self.grey_img = cv2.cvtColor(self.bgr_img, cv2.COLOR_BGR2GRAY)
-
-        self.shape = self.bgr_img.shape
-
-        self.optical_flows = {}
-
-    def write_pano(self, pano_number):
-        cv2.imwrite(self.base_out_path + 'base_' + str(pano_number) + '.jpg', self.bgr_img)
-
-
-class BasePanoramaContainer:
-    def __init__(self, base_panoramas=None, base_out_path='out/'):
-        self.base_panoramas = base_panoramas if base_panoramas is not None else []
-        self.base_out_path = base_out_path
-
-    def __len__(self):
-        return len(self.base_panoramas)
-
-    def __getitem__(self, item):
-        return self.base_panoramas[item]
-
-    def __iter__(self):
-        yield from self.base_panoramas
-
-    def append(self, base_panorama):
-        self.base_panoramas.append(base_panorama)
-
-    @property
-    def base_panorama_shape(self):
-        return self[0].shape
-
-    def get_world_coordinates(self):
-        x, y, z, valid = self[0].envmap.worldCoordinates()
-        return x, y, z, valid
-
-    def write_base_panoramas(self):
-        for i, base_panorama in enumerate(self):
-            base_panorama.write_pano(i)
-
-    def calculate_optical_flows(self):
-        permutation_indexes = list(itertools.permutations(range(len(self)), 2))
-
-        for pano_1_index, pano_2_index in permutation_indexes:
-            base_pano_1 = self[pano_1_index]
-            base_pano_2 = self[pano_2_index]
-
-            opt_flow = optical_flow.OpticalFlow(
-                base_pano_1.grey_img,
-                base_pano_2.grey_img,
-                (pano_1_index, pano_2_index),
-                self.base_out_path
-            )
-
-            base_pano_1.optical_flows[pano_2_index] = opt_flow
 
 
 class GeneratedPanorama:
@@ -227,6 +162,7 @@ class GeneratedPanoramaContainer:
         self.rho = rho
         self.base_panorama_container = base_panorama_container
         self.camera_container = camera_container
+        self.base_out_path = base_out_path
 
         for side in self.side:
             self.generated_panoramas_dict[side] = GeneratedPanorama(
@@ -236,13 +172,15 @@ class GeneratedPanoramaContainer:
                 self.camera_container,
                 cameras_to_keep,
                 envmap_type,
-                base_out_path
+                self.base_out_path
             )
 
         self.viewing_circle_radius = viewing_circle_radius
         self.projection_points = None
         self.cameras_vectors_cartesian = None
         self.cameras_vectors_spherical = None
+
+        self.optical_flows = dict()
 
     def __getitem__(self, item):
         return self.generated_panoramas_dict[item]
@@ -308,13 +246,47 @@ class GeneratedPanoramaContainer:
         self.camera_container.calculate_cameras_vectors(self.projection_points)
 
     def calculate_eye_vectors(self):
-        for side, generated_panorama in self.generated_panoramas_dict.items():
+        for side, generated_panorama in self:
             generated_panorama.calculate_eye_vectors(self.projection_points)
 
     def calculate_angles_between_eyes_and_cameras_vectors(self):
-        for side, generated_panorama in self.generated_panoramas_dict.items():
+        for side, generated_panorama in self:
             generated_panorama.calculate_angles_eyes_cameras()
 
     def calculate_best_cameras_vectors(self):
-        for side, generated_panorama in self.generated_panoramas_dict.items():
+        for side, generated_panorama in self:
             generated_panorama.calculate_best_cameras_vectors()
+
+    def calculate_optical_flows(self):
+        base_panorama_combination_indexes = list(itertools.combinations(range(len(self.base_panorama_container)), 2))
+
+        for combination_index in base_panorama_combination_indexes:
+            base_pano_1 = self.base_panorama_container[combination_index[0]]
+            base_pano_2 = self.base_panorama_container[combination_index[1]]
+
+            opt_flow = optical_flow.OpticalFlow(
+                base_pano_1.grey_img,
+                base_pano_2.grey_img,
+                combination_index,
+                self.base_out_path + 'flow/'
+            )
+
+            self.optical_flows[combination_index] = opt_flow
+
+    def interpolate_base_panoramas(self):
+        for panorama_pair_index, flow in self.optical_flows.items():
+            interpolation_path = self.base_out_path + 'flow/interpolation/' + str(panorama_pair_index[0]) + '_to_' + str(
+                    panorama_pair_index[1]) + '/'
+            Path(interpolation_path).mkdir(parents=True, exist_ok=True)
+            for alpha in np.around(np.linspace(0, 1, 11), 1):
+
+                img_1 = self.base_panorama_container[panorama_pair_index[0]].bgr_img
+                img_2 = self.base_panorama_container[panorama_pair_index[1]].bgr_img
+
+                shift_1 = utils.shift_img(img_1, flow.flows[0], alpha)
+                shift_2 = utils.shift_img(img_2, flow.flows[1], 1 - alpha)
+
+                out = (1 - alpha) * shift_1 + alpha * shift_2
+
+                cv2.imwrite(interpolation_path + 'interpolated_' + str(alpha) + '.jpg', out)
+
