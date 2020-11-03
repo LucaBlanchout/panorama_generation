@@ -1,32 +1,25 @@
+import utils
+
 import cv2
 import numpy as np
 from pathlib import Path
 
 
 class OpticalFlow:
-    def __init__(self, pano_1_grey, pano_2_grey, pano_index, out_path):
+    def __init__(self, pano_1_extended_cubemap, pano_2_extended_cubemap, pano_index, out_path):
         self.pano_index = pano_index
 
-        self.pano_1_grey = pano_1_grey
-        self.pano_2_grey = pano_2_grey
+        self.pano_1_extended_cubemap = pano_1_extended_cubemap
+        self.pano_2_extended_cubemap = pano_2_extended_cubemap
         # Needs to be inverted for calculate_vector_directions_image()
-        self.panos_grey = [self.pano_2_grey, self.pano_1_grey]
+        self.panos_grey = [
+            cv2.cvtColor(np.float32(self.pano_2_extended_cubemap.get_extended_cube()), cv2.COLOR_RGB2GRAY),
+            cv2.cvtColor(np.float32(self.pano_1_extended_cubemap.get_extended_cube()), cv2.COLOR_RGB2GRAY),
+        ]
 
-        # self.flow = None
-        # self.inv_flow = None
-        # self.flows = [self.flow, self.inv_flow]
+        # These three properties also have their inverted counterpart.
         self.flows = [None, None]
-
-        # self.vector_directions_image = None
-        # self.inv_vector_directions_image = None
-        # self.vector_directions_images = [self.vector_directions_image, self.inv_vector_directions_image]
-
         self.vector_directions_images = [None, None]
-
-        # self.bgr = None
-        # self.inv_bgr = None
-        # self.bgrs = [self.bgr, self.inv_bgr]
-
         self.bgrs = [None, None]
 
         self.out_path = out_path
@@ -40,31 +33,42 @@ class OpticalFlow:
         self.write_bgr()
 
     def calculate_flow(self):
-        self.flows[0] = cv2.calcOpticalFlowFarneback(
-            self.pano_1_grey,
-            self.pano_2_grey,
-            None,
-            pyr_scale=0.5,
-            levels=5,
-            winsize=15,
-            iterations=20,
-            poly_n=7,
-            poly_sigma=1.5,
-            flags=0
-        )
+        flow = {}
+        inv_flow = {}
+        for face in utils.FACES:
+            grey_face_1 = cv2.cvtColor(self.pano_1_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
+            grey_face_2 = cv2.cvtColor(self.pano_2_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
 
-        self.flows[1] = cv2.calcOpticalFlowFarneback(
-            self.pano_2_grey,
-            self.pano_1_grey,
-            None,
-            pyr_scale=0.5,
-            levels=5,
-            winsize=15,
-            iterations=20,
-            poly_n=7,
-            poly_sigma=1.5,
-            flags=0
-        )
+            flow[face] = cv2.calcOpticalFlowFarneback(
+                grey_face_1,
+                grey_face_2,
+                None,
+                pyr_scale=0.5,
+                levels=5,
+                winsize=15,
+                iterations=20,
+                poly_n=7,
+                poly_sigma=1.5,
+                flags=0
+            )
+
+            inv_flow[face] = cv2.calcOpticalFlowFarneback(
+                grey_face_2,
+                grey_face_1,
+                None,
+                pyr_scale=0.5,
+                levels=5,
+                winsize=15,
+                iterations=20,
+                poly_n=7,
+                poly_sigma=1.5,
+                flags=0
+            )
+
+        flow = utils.build_cube(flow)
+        inv_flow = utils.build_cube(inv_flow)
+
+        self.flows = [flow, inv_flow]
 
     def calculate_bgr(self):
         for i in range(len(self.flows)):

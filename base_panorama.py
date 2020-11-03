@@ -1,5 +1,5 @@
 from skylibs.envmap import EnvironmentMap
-
+from cubemap import ExtendedCubeMap
 import cv2
 import numpy as np
 
@@ -8,6 +8,7 @@ class BasePanorama:
     def __init__(self, index, in_path, base_out_path='out/', envmap_type='latlong'):
         self.index = index
         self.envmap = EnvironmentMap(in_path + str(self.index) + '.jpg', 'latlong')
+        self.extended_cubemap = ExtendedCubeMap((self.envmap.data * 255).astype(np.uint8), 'latlong')
         self.type = envmap_type
         self.base_out_path = base_out_path
 
@@ -16,6 +17,9 @@ class BasePanorama:
 
         self.bgr_img = cv2.cvtColor((self.envmap.data * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
         self.grey_img = cv2.cvtColor(self.bgr_img, cv2.COLOR_BGR2GRAY)
+
+        self.bgr_extended_cubemap = cv2.cvtColor(np.float32(self.extended_cubemap.get_extended_cube()), cv2.COLOR_RGB2BGR)
+        self.grey_extended_cubemap = cv2.cvtColor(self.bgr_extended_cubemap, cv2.COLOR_BGR2GRAY)
 
         self.shape = self.bgr_img.shape
 

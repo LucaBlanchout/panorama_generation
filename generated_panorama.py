@@ -1,6 +1,7 @@
 import utils
 import optical_flow
 from skylibs.envmap import EnvironmentMap
+from cubemap import ExtendedCubeMap
 
 import numpy as np
 import itertools
@@ -265,8 +266,8 @@ class GeneratedPanoramaContainer:
             base_pano_2 = self.base_panorama_container[combination_index[1]]
 
             opt_flow = optical_flow.OpticalFlow(
-                base_pano_1.grey_img,
-                base_pano_2.grey_img,
+                base_pano_1.extended_cubemap,
+                base_pano_2.extended_cubemap,
                 combination_index,
                 self.base_out_path + 'flow/'
             )
@@ -279,14 +280,29 @@ class GeneratedPanoramaContainer:
                     panorama_pair_index[1]) + '/'
             Path(interpolation_path).mkdir(parents=True, exist_ok=True)
             for alpha in np.around(np.linspace(0, 1, 11), 1):
+                base_pano_1 = self.base_panorama_container[panorama_pair_index[0]]
+                base_pano_2 = self.base_panorama_container[panorama_pair_index[1]]
 
-                img_1 = self.base_panorama_container[panorama_pair_index[0]].bgr_img
-                img_2 = self.base_panorama_container[panorama_pair_index[1]].bgr_img
+                split_flow = utils.split_cube(flow.flows[0])
+                shift_1 = {}
+                for face in utils.FACES:
+                    shift_1[face] = utils.shift_img(base_pano_1.extended_cubemap.extended[face], split_flow[face], alpha)
+                shift_1 = utils.build_cube(shift_1)
 
-                shift_1 = utils.shift_img(img_1, flow.flows[0], alpha)
-                shift_2 = utils.shift_img(img_2, flow.flows[1], 1 - alpha)
+                split_flow = utils.split_cube(flow.flows[1])
+                shift_2 = {}
+                for face in utils.FACES:
+                    shift_2[face] = utils.shift_img(base_pano_2.extended_cubemap.extended[face], split_flow[face],
+                                                    1 - alpha)
+                shift_2 = utils.build_cube(shift_2)
 
                 out = (1 - alpha) * shift_1 + alpha * shift_2
 
-                cv2.imwrite(interpolation_path + 'interpolated_' + str(alpha) + '.jpg', out)
+                cv2.imwrite(interpolation_path + 'interpolated_' + str(alpha) + '.jpg', cv2.cvtColor(np.float32(out), cv2.COLOR_RGB2BGR))
+
+                out_extended_cube_map = ExtendedCubeMap(out, "Xcube", fov=base_pano_1.extended_cubemap.fov, w_original=base_pano_1.extended_cubemap.w_original)
+
+                out_clipped = out_extended_cube_map.get_clipped_cube()
+
+                cv2.imwrite(interpolation_path + 'clip_interpolated_' + str(alpha) + '.jpg', cv2.cvtColor(np.float32(out_clipped), cv2.COLOR_RGB2BGR))
 
