@@ -6,6 +6,8 @@ import numpy as np
 from scipy.ndimage.interpolation import map_coordinates
 import matplotlib.pyplot as plt
 
+"""This code is inspired by the work of https://github.com/rskletza/360imageSynthesis"""
+
 """
 sides of the cube:
          ___
@@ -46,7 +48,7 @@ class ExtendedCubeMap:
             if self.envmap_type != 'cube':
                 self._envmap.convertTo('cube')
 
-        self.world_coordinates(110)
+        # self.world_coordinates(110)
 
     def get_extended_cube(self):
         return utils.build_cube(self.extended)
@@ -78,8 +80,6 @@ class ExtendedCubeMap:
 
         face_width = int(self.w * (norm_new_width / norm_original_width))
 
-        print("Face width = ", face_width)
-
         rotations = {
             "top": rotation_matrix(0, np.deg2rad(-90), 0),
             "front": rotation_matrix(0, 0, 0),
@@ -94,46 +94,46 @@ class ExtendedCubeMap:
             faces[face] = self._envmap.project(fov, rotations[face], 1., (face_width, face_width))
         return faces
 
-    def world_coordinates(self, fov):
-        u, v = self._envmap.imageCoordinates()
-        x_base, y_base, z_base, valid_base = cube2world(u, v)
-
-        base_world_coord = np.stack((x_base, y_base, z_base, valid_base), axis=2)
-
-        base_world_coord_envmap = EnvironmentMap(base_world_coord, 'cube')
-
-        face_width = self.extended['top'].shape[0]
-        # norm_original_width = np.tan(np.deg2rad(self.fov / 2)) * 2
-        #
-        # norm_new_width = np.tan(np.deg2rad(fov / 2)) * 2
-        #
-        # face_width = int(self.w * (norm_new_width / norm_original_width))
-
-        print("face_width world_coord =", face_width)
-
-        rotations = {
-            "top": rotation_matrix(0, np.deg2rad(-90), 0),
-            "front": rotation_matrix(0, 0, 0),
-            "left": rotation_matrix(np.deg2rad(-90), 0, 0),
-            "right": rotation_matrix(np.deg2rad(90), 0, 0),
-            "bottom": rotation_matrix(0, np.deg2rad(90), 0),
-            "back": rotation_matrix(0, np.deg2rad(180), 0)
-        }
-
-        plt.imshow(self.get_extended_cube().astype(np.uint8))
-        plt.show()
-
-        plt.imshow(base_world_coord_envmap.data[..., 0])
-        plt.show()
-
-        faces = {}
-        for face in utils.FACES:
-            faces[face] = base_world_coord_envmap.project(fov, rotations[face], 1., (face_width, face_width))
-
-        world_coord = utils.build_cube(faces)
-
-        plt.imshow(world_coord[..., 0])
-        plt.show()
+    # def world_coordinates(self, fov):
+    #     u, v = self._envmap.imageCoordinates()
+    #     x_base, y_base, z_base, valid_base = cube2world(u, v)
+    #
+    #     base_world_coord = np.stack((x_base, y_base, z_base, valid_base), axis=2)
+    #
+    #     base_world_coord_envmap = EnvironmentMap(base_world_coord, 'cube')
+    #
+    #     face_width = self.extended['top'].shape[0]
+    #     # norm_original_width = np.tan(np.deg2rad(self.fov / 2)) * 2
+    #     #
+    #     # norm_new_width = np.tan(np.deg2rad(fov / 2)) * 2
+    #     #
+    #     # face_width = int(self.w * (norm_new_width / norm_original_width))
+    #
+    #     print("face_width world_coord =", face_width)
+    #
+    #     rotations = {
+    #         "top": rotation_matrix(0, np.deg2rad(-90), 0),
+    #         "front": rotation_matrix(0, 0, 0),
+    #         "left": rotation_matrix(np.deg2rad(-90), 0, 0),
+    #         "right": rotation_matrix(np.deg2rad(90), 0, 0),
+    #         "bottom": rotation_matrix(0, np.deg2rad(90), 0),
+    #         "back": rotation_matrix(0, np.deg2rad(180), 0)
+    #     }
+    #
+    #     plt.imshow(self.get_extended_cube().astype(np.uint8))
+    #     plt.show()
+    #
+    #     plt.imshow(base_world_coord_envmap.data[..., 0])
+    #     plt.show()
+    #
+    #     faces = {}
+    #     for face in utils.FACES:
+    #         faces[face] = base_world_coord_envmap.project(fov, rotations[face], 1., (face_width, face_width))
+    #
+    #     world_coord = utils.build_cube(faces)
+    #
+    #     plt.imshow(world_coord[..., 0])
+    #     plt.show()
 
         # base_face_width = x_base.shape[0] // 4
         # extended_face_width = self.extended['top'].shape[0]

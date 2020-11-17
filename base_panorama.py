@@ -15,6 +15,7 @@ class BasePanorama:
         if self.type == 'cube':
             self.envmap = self.envmap.convertTo('cube')
 
+        self.rgb_img = (self.envmap.data * 255).astype(np.uint8)
         self.bgr_img = cv2.cvtColor((self.envmap.data * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
         self.grey_img = cv2.cvtColor(self.bgr_img, cv2.COLOR_BGR2GRAY)
 

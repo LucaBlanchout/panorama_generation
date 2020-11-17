@@ -9,7 +9,7 @@ import math
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
 width_resolution = 1024
-number_of_cameras = 3
+number_of_cameras = 12
 cameras_to_keep = 2
 # envmap_type = 'latlong'
 envmap_type = 'cube'
@@ -48,13 +48,11 @@ generated_panorama_container = GeneratedPanoramaContainer(
     base_out_path
 )
 
-generated_panorama_container.calculate_optical_flows()
-generated_panorama_container.interpolate_base_panoramas()
-#
-# rho_range = np.linspace(0.5, 5, 10)
-# for rho in rho_range:
-#     print("\nStarting rho =", rho)
-#
-#     generated_panorama_container.set_rho_and_generate_panoramas(rho)
-#
-#     print("Finished rho=", rho)
+rho_range = np.linspace(0.5, 5, 10)
+# rho_range = [3.0]
+for rho in rho_range:
+    print("\nStarting rho =", rho)
+
+    generated_panorama_container.set_rho_and_generate_panoramas(rho)
+
+    print("Finished rho=", rho)
