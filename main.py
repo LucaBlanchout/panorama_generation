@@ -9,7 +9,7 @@ import math
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
 width_resolution = 1024
-number_of_cameras = 12
+number_of_cameras = 3
 cameras_to_keep = 2
 # envmap_type = 'latlong'
 envmap_type = 'cube'
@@ -49,7 +49,6 @@ generated_panorama_container = GeneratedPanoramaContainer(
 )
 
 rho_range = np.linspace(0.5, 5, 10)
-# rho_range = [3.0]
 for rho in rho_range:
     print("\nStarting rho =", rho)
 

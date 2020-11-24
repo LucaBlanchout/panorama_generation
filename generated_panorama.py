@@ -107,6 +107,8 @@ class GeneratedPanorama:
                 np.arange(cameras_vectors.shape[1])[:, None],
                 :
             ]
+        print(cameras_vectors.shape)
+        print(self.best_cameras_vectors.shape)
 
     def generate_panorama(self, base_panorama_container):
         height, width, channels = self.shape
@@ -182,7 +184,6 @@ class GeneratedPanorama:
             print('angles index =', min_angles_index.shape)
             print('angles ratio=', min_angles_ratio.shape)
 
-            # for i in range(len(pair_array)):
             for i, index in enumerate(pair_array):
                 xyz = np.squeeze(self.best_cameras_vectors[min_angles_index, i, :])
 
@@ -213,6 +214,26 @@ class GeneratedPanorama:
         height, width, channels = self.shape
         self.data = np.zeros(self.shape).reshape((-1, 3))
 
+        min_angles_ratio_display = (self.min_angles_ratio[..., 0].reshape((self.shape[0], self.shape[1])) * 255).astype(np.uint8)
+        ratio_path = 'out/cube/1024/3/keep_2/ratio/' + self.side + '_' + str(self.rho) + '.jpg'
+        plt.imsave(ratio_path, min_angles_ratio_display)
+
+        angles_pair_display = np.zeros(self.shape, dtype=np.uint8)
+
+        angles_pair_display = angles_pair_display.reshape(-1, 3)
+
+        angles_pair_display[np.argwhere(np.all(self.min_angles_indexes == [0, 1], axis=1))] = [255, 0, 0]
+        angles_pair_display[np.argwhere(np.all(self.min_angles_indexes == [1, 0], axis=1))] = [255, 0, 0]
+        angles_pair_display[np.argwhere(np.all(self.min_angles_indexes == [0, 2], axis=1))] = [0, 255, 0]
+        angles_pair_display[np.argwhere(np.all(self.min_angles_indexes == [2, 0], axis=1))] = [0, 255, 0]
+        angles_pair_display[np.argwhere(np.all(self.min_angles_indexes == [1, 2], axis=1))] = [0, 0, 255]
+        angles_pair_display[np.argwhere(np.all(self.min_angles_indexes == [2, 1], axis=1))] = [0, 0, 255]
+
+        angles_pair_display = angles_pair_display.reshape(self.shape)
+
+        angles_pair_path = 'out/cube/1024/3/keep_2/pair/' + self.side + '_' + str(self.rho) + '.jpg'
+        plt.imsave(angles_pair_path, angles_pair_display)
+
         for pair in interpolated_base_panoramas.keys():
             pair_array = np.array(pair)
             min_angles_index = np.argwhere(np.all(self.min_angles_indexes == pair_array, axis=1))
@@ -221,6 +242,7 @@ class GeneratedPanorama:
 
             min_angles_ratio = np.around(min_angles_ratio, decimals=2)
 
+            # for j in range(2):
             xyz = np.squeeze(self.best_cameras_vectors[min_angles_index, 0, :])
 
             u, v = base_panorama_container[0].envmap.world2image(xyz[:, 0], xyz[:, 1], xyz[:, 2])
@@ -231,9 +253,10 @@ class GeneratedPanorama:
             u = np.where(u >= width, width - 1, u)
             v = np.where(v >= height, height - 1, v)
 
-            for j in range(u.shape[0]):
+            for k in range(u.shape[0]):
                 try:
-                    self.data[min_angles_index[j], :] = interpolated_base_panoramas[pair][min_angles_ratio[j, 0]][v[j], u[j], :]
+                    self.data[min_angles_index[k], :] = interpolated_base_panoramas[pair][min_angles_ratio[k, 0]][v[k], u[k], :]
+                    # self.data[min_angles_index[k], :] += min_angles_ratio[k, 0] * interpolated_base_panoramas[pair][min_angles_ratio[k, 0]][v[k], u[k], :]
                 except (KeyError, IndexError):
                     pass
 
@@ -299,7 +322,7 @@ class GeneratedPanoramaContainer:
 
         self.calculate_optical_flows_permutations()
         # self.calculate_min_max_ratio_for_interpolation()
-        self.calculate_min_max_ratio_for_interpolation_2()
+        self.get_interpolation_from_gt()
 
     def __getitem__(self, item):
         return self.generated_panoramas_dict[item]
@@ -314,7 +337,6 @@ class GeneratedPanoramaContainer:
         self.calculate_eye_vectors()
         self.calculate_angles_between_eyes_and_cameras_vectors()
         self.calculate_best_cameras_vectors()
-
 
         for side, generated_panorama in self.generated_panoramas_dict.items():
             # generated_panorama.generate_panorama_temp(self.base_panorama_container, self.interpolated_base_panoramas)
@@ -447,59 +469,13 @@ class GeneratedPanoramaContainer:
     def calculate_min_max_ratio_for_interpolation(self):
         print("Starting interpolation")
 
-        min_ratio = np.nanmin(self['left'].min_angles_ratio[:, 0])
-        max_ratio = np.nanmax(self['left'].min_angles_ratio[:, 0])
-
-        min_ratio = round(min_ratio, 2)
-        max_ratio = round(max_ratio, 2)
-
-        interpolation_to_generate = np.arange(min_ratio, max_ratio + 0.01, 0.01)
-
-        for panorama_pair_index, flow in self.optical_flows.items():
-            print("Starting interpolation for pair :", panorama_pair_index)
-            pair_dict = {}
-            for ratio in interpolation_to_generate:
-                ratio = round(ratio, 2)
-
-                base_pano_1 = self.base_panorama_container[panorama_pair_index[0]]
-                base_pano_2 = self.base_panorama_container[panorama_pair_index[1]]
-
-                split_flow = utils.split_cube(flow.flows[0])
-                shift_1 = {}
-                for face in utils.FACES:
-                    shift_1[face] = utils.shift_img(base_pano_1.extended_cubemap.extended[face], split_flow[face],
-                                                    ratio)
-                shift_1 = utils.build_cube(shift_1)
-
-                shift_1 = ExtendedCubeMap(shift_1, "Xcube", fov=base_pano_1.extended_cubemap.fov, w_original=base_pano_1.extended_cubemap.w_original)
-                shift_1 = shift_1.get_clipped_cube()
-
-                split_flow = utils.split_cube(flow.flows[1])
-                shift_2 = {}
-                for face in utils.FACES:
-                    shift_2[face] = utils.shift_img(base_pano_2.extended_cubemap.extended[face], split_flow[face],
-                                                    1 - ratio)
-                shift_2 = utils.build_cube(shift_2)
-
-                shift_2 = ExtendedCubeMap(shift_2, "Xcube", fov=base_pano_1.extended_cubemap.fov,
-                                          w_original=base_pano_1.extended_cubemap.w_original)
-
-                shift_2 = shift_2.get_clipped_cube()
-
-                pair_dict[ratio] = [shift_1, shift_2]
-
-            self.interpolated_base_panoramas[panorama_pair_index] = pair_dict
-
-    def calculate_min_max_ratio_for_interpolation_2(self):
-        print("Starting interpolation")
-
         # min_ratio = np.nanmin(self['left'].min_angles_ratio[:, 0])
         # max_ratio = np.nanmax(self['left'].min_angles_ratio[:, 0])
 
         # min_ratio = round(min_ratio, 2)
         # max_ratio = round(max_ratio, 2)
 
-        min_ratio = 0.01
+        min_ratio = 0.00
         max_ratio = 0.50
 
         interpolation_to_generate = np.arange(min_ratio, max_ratio + 0.01, 0.01)
@@ -512,6 +488,8 @@ class GeneratedPanoramaContainer:
 
                 base_pano_1 = self.base_panorama_container[panorama_pair_index[0]]
                 base_pano_2 = self.base_panorama_container[panorama_pair_index[1]]
+
+                pair_dict[ratio] = base_pano_1.rgb_img
 
                 split_flow = utils.split_cube(flow.flows[0])
                 shift_1 = {}
@@ -536,4 +514,31 @@ class GeneratedPanoramaContainer:
 
                 pair_dict[ratio] = out_clipped
 
+                # cv2.imwrite('out/cube/1024/3/keep_2/interpolation/' + str(panorama_pair_index[0]) + '_' + str(
+                #     panorama_pair_index[1]) + '/' + str(ratio) + '.jpg',
+                #             cv2.cvtColor(np.float32(out_clipped), cv2.COLOR_RGB2BGR))
+
             self.interpolated_base_panoramas[panorama_pair_index] = pair_dict
+
+    def get_interpolation_from_gt(self):
+        min_ratio = 0.00
+        max_ratio = 0.50
+
+        interpolation_to_generate = np.arange(min_ratio, max_ratio + 0.01, 0.01)
+        for panorama_pair_index, flow in self.optical_flows.items():
+            print("Starting interpolation for pair :", panorama_pair_index)
+            pair_dict = {}
+            for ratio in interpolation_to_generate:
+                ratio = round(ratio, 2)
+
+                path = 'images/1024/interpolation_gt/' + str(panorama_pair_index[0]) + '_' + str(panorama_pair_index[1]) + "/360render_" + "{:.2f}".format(ratio) + '.jpg'
+
+                gt = EnvironmentMap(path, 'latlong')
+                gt = gt.convertTo('cube')
+
+                pair_dict[ratio] = (gt.data * 255).astype(np.uint8)
+
+            self.interpolated_base_panoramas[panorama_pair_index] = pair_dict
+
+
+
