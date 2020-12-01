@@ -35,6 +35,9 @@ class GeneratedPanorama:
         self.intermediate_points = None
         self.best_cameras_vectors = None
 
+        #TODO : See if this is renamed
+        self.intermediate_vectors = None
+
     def calculate_eye_vectors(self, projection_points):
         vx = projection_points[:, 0] - self.eye_points[:, 0]
         vy = projection_points[:, 1] - self.eye_points[:, 1]
@@ -77,7 +80,7 @@ class GeneratedPanorama:
         min_angles_ratio_inv = 1 - min_angles_ratio
         self.min_angles_ratio = np.column_stack((min_angles_ratio, min_angles_ratio_inv))
 
-    def calculate_intermediate_points(self):
+    def calculate_intermediate_vectors(self, projection_points):
         self.intermediate_points = np.empty((self.min_angles_ratio.shape[0], 3))
 
         cameras_coordinates = self.camera_container.get_cameras_coordinates()
@@ -88,16 +91,28 @@ class GeneratedPanorama:
             permutation_index = np.array(permutation_index)
             indices = np.argwhere((self.min_angles_indexes == permutation_index).all(axis=1))
 
-            alphas = self.min_angles_ratio[indices]
-            inv_alphas = 1 - self.min_angles_ratio[indices]
+            ratio = self.min_angles_ratio[indices, 0]
+            inv_ratio = self.min_angles_ratio[indices, 1]
 
-            xs = alphas * cameras_coordinates[permutation_index[0]][0] + inv_alphas * cameras_coordinates[permutation_index[1]][0]
-            ys = alphas * cameras_coordinates[permutation_index[0]][1] + inv_alphas * cameras_coordinates[permutation_index[1]][1]
-            zs = alphas * cameras_coordinates[permutation_index[0]][2] + inv_alphas * cameras_coordinates[permutation_index[1]][2]
+            xs = ratio * cameras_coordinates[permutation_index[0]][0] + inv_ratio * cameras_coordinates[permutation_index[1]][0]
+            ys = ratio * cameras_coordinates[permutation_index[0]][1] + inv_ratio * cameras_coordinates[permutation_index[1]][1]
+            zs = ratio * cameras_coordinates[permutation_index[0]][2] + inv_ratio * cameras_coordinates[permutation_index[1]][2]
 
             self.intermediate_points[indices, 0] = xs
             self.intermediate_points[indices, 1] = ys
             self.intermediate_points[indices, 2] = zs
+
+        vx = projection_points[:, 0] - self.intermediate_points[:, 0]
+        vy = projection_points[:, 1] - self.intermediate_points[:, 1]
+        vz = projection_points[:, 2] - self.intermediate_points[:, 2]
+
+        magnitude = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
+
+        vx /= magnitude
+        vy /= magnitude
+        vz /= magnitude
+
+        self.intermediate_vectors = np.stack((vx, vy, vz), axis=1)
 
     def calculate_best_cameras_vectors(self):
         cameras_vectors = self.camera_container.get_cameras_vectors_cartesian()
@@ -107,8 +122,6 @@ class GeneratedPanorama:
                 np.arange(cameras_vectors.shape[1])[:, None],
                 :
             ]
-        print(cameras_vectors.shape)
-        print(self.best_cameras_vectors.shape)
 
     def generate_panorama(self, base_panorama_container):
         height, width, channels = self.shape
@@ -215,7 +228,7 @@ class GeneratedPanorama:
         self.data = np.zeros(self.shape).reshape((-1, 3))
 
         min_angles_ratio_display = (self.min_angles_ratio[..., 0].reshape((self.shape[0], self.shape[1])) * 255).astype(np.uint8)
-        ratio_path = 'out/cube/1024/3/keep_2/ratio/' + self.side + '_' + str(self.rho) + '.jpg'
+        ratio_path = 'out/cube/2048/4/keep_2/ratio/' + self.side + '_' + str(self.rho) + '.jpg'
         plt.imsave(ratio_path, min_angles_ratio_display)
 
         angles_pair_display = np.zeros(self.shape, dtype=np.uint8)
@@ -231,7 +244,7 @@ class GeneratedPanorama:
 
         angles_pair_display = angles_pair_display.reshape(self.shape)
 
-        angles_pair_path = 'out/cube/1024/3/keep_2/pair/' + self.side + '_' + str(self.rho) + '.jpg'
+        angles_pair_path = 'out/cube/2048/4/keep_2/pair/' + self.side + '_' + str(self.rho) + '.jpg'
         plt.imsave(angles_pair_path, angles_pair_display)
 
         for pair in interpolated_base_panoramas.keys():
@@ -242,8 +255,8 @@ class GeneratedPanorama:
 
             min_angles_ratio = np.around(min_angles_ratio, decimals=2)
 
-            # for j in range(2):
-            xyz = np.squeeze(self.best_cameras_vectors[min_angles_index, 0, :])
+            # xyz = np.squeeze(self.best_cameras_vectors[min_angles_index, 0, :])
+            xyz = np.squeeze(self.intermediate_vectors[min_angles_index, :])
 
             u, v = base_panorama_container[0].envmap.world2image(xyz[:, 0], xyz[:, 1], xyz[:, 2])
 
@@ -276,7 +289,7 @@ class GeneratedPanorama:
 
         elif self.envmap_type == 'cube':
             panorama_cube = Image.fromarray(self.data)
-            out_path_cube = self.base_out_path + 'cubemap_ratio/'
+            out_path_cube = self.base_out_path + 'cubemap/'
             Path(out_path_cube).mkdir(parents=True, exist_ok=True)
             save_path = out_path_cube + "cubemap_rho_" + str(self.rho) + '_' + self.side + '.jpg'
             panorama_cube.save(save_path)
@@ -320,7 +333,7 @@ class GeneratedPanoramaContainer:
         # TODO : These should be temporary
         self.interpolated_base_panoramas = dict()
 
-        self.calculate_optical_flows_permutations()
+        # self.calculate_optical_flows_permutations()
         # self.calculate_min_max_ratio_for_interpolation()
         self.get_interpolation_from_gt()
 
@@ -336,6 +349,7 @@ class GeneratedPanoramaContainer:
         self.calculate_camera_vectors()
         self.calculate_eye_vectors()
         self.calculate_angles_between_eyes_and_cameras_vectors()
+        self.calculate_intermediate_vectors()
         self.calculate_best_cameras_vectors()
 
         for side, generated_panorama in self.generated_panoramas_dict.items():
@@ -396,6 +410,10 @@ class GeneratedPanoramaContainer:
     def calculate_angles_between_eyes_and_cameras_vectors(self):
         for side, generated_panorama in self:
             generated_panorama.calculate_angles_eyes_cameras()
+
+    def calculate_intermediate_vectors(self):
+        for side, genereated_panorama in self:
+            genereated_panorama.calculate_intermediate_vectors(self.projection_points)
 
     def calculate_best_cameras_vectors(self):
         for side, generated_panorama in self:
@@ -525,13 +543,14 @@ class GeneratedPanoramaContainer:
         max_ratio = 0.50
 
         interpolation_to_generate = np.arange(min_ratio, max_ratio + 0.01, 0.01)
-        for panorama_pair_index, flow in self.optical_flows.items():
+        # for panorama_pair_index, flow in self.optical_flows.items():
+        for panorama_pair_index in list(itertools.permutations(range(len(self.base_panorama_container)), 2)):
             print("Starting interpolation for pair :", panorama_pair_index)
             pair_dict = {}
             for ratio in interpolation_to_generate:
                 ratio = round(ratio, 2)
 
-                path = 'images/1024/interpolation_gt/' + str(panorama_pair_index[0]) + '_' + str(panorama_pair_index[1]) + "/360render_" + "{:.2f}".format(ratio) + '.jpg'
+                path = 'images/2048/4/interpolation_gt/' + str(panorama_pair_index[0]) + '_' + str(panorama_pair_index[1]) + "/360render_" + "{:.2f}".format(ratio) + '.jpg'
 
                 gt = EnvironmentMap(path, 'latlong')
                 gt = gt.convertTo('cube')
