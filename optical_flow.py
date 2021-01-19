@@ -39,13 +39,26 @@ class OpticalFlow:
             grey_face_1 = cv2.cvtColor(self.pano_1_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
             grey_face_2 = cv2.cvtColor(self.pano_2_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
 
+            # flow[face] = cv2.calcOpticalFlowFarneback(
+            #     grey_face_1,
+            #     grey_face_2,
+            #     None,
+            #     pyr_scale=0.5,
+            #     levels=5,
+            #     winsize=15,
+            #     iterations=20,
+            #     poly_n=7,
+            #     poly_sigma=1.5,
+            #     flags=0
+            # )
+
             flow[face] = cv2.calcOpticalFlowFarneback(
                 grey_face_1,
                 grey_face_2,
                 None,
                 pyr_scale=0.5,
                 levels=5,
-                winsize=15,
+                winsize=50,
                 iterations=20,
                 poly_n=7,
                 poly_sigma=1.5,
@@ -58,7 +71,7 @@ class OpticalFlow:
                 None,
                 pyr_scale=0.5,
                 levels=5,
-                winsize=15,
+                winsize=50,
                 iterations=20,
                 poly_n=7,
                 poly_sigma=1.5,

@@ -8,7 +8,7 @@ import math
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
 
-width_resolution = 2048
+width_resolution = 1025
 number_of_cameras = 3
 cameras_to_keep = 2
 # envmap_type = 'latlong'
