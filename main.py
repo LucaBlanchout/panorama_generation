@@ -7,15 +7,16 @@ import math
 
 
 np.set_printoptions(formatter={'float': '{: 0.5f}'.format})
+np.seterr(divide='ignore', invalid='ignore')
 
-width_resolution = 1025
+width_resolution = 1024
 number_of_cameras = 3
 cameras_to_keep = 2
 # envmap_type = 'latlong'
 envmap_type = 'cube'
 
-in_path = 'images/' + str(width_resolution) + "/" + str(number_of_cameras) + '/360render_'
-base_out_path = "out/" + envmap_type + '/' + str(width_resolution) + "/" + str(number_of_cameras) + "/keep_" + str(cameras_to_keep) + "/"
+in_path = 'images/' + str(width_resolution) + "/" + str(number_of_cameras) + '/real/360render_'
+base_out_path = "out/" + envmap_type + '/' + str(width_resolution) + "/" + str(number_of_cameras) + "/keep_" + str(cameras_to_keep) + "/real/"
 
 base_panorama_container = BasePanoramaContainer(base_out_path=base_out_path)
 camera_container = CameraContainer()

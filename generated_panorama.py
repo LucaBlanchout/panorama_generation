@@ -71,6 +71,42 @@ class GeneratedPanorama:
             angles.append(ang_deg)
 
         self.angles_eyes_cameras = np.transpose(np.array(angles))
+        angles_eyes_cameras_shape = self.angles_eyes_cameras.shape
+
+        self.angles_eyes_cameras = self.angles_eyes_cameras.reshape((512, 384, 3))
+
+        mask_0 = plt.imread('images/1024/3/real/360render_0_mask_cubemap.jpg')[:, :, 1]
+        mask_1 = plt.imread('images/1024/3/real/360render_1_mask_cubemap.jpg')[:, :, 1]
+        mask_2 = plt.imread('images/1024/3/real/360render_2_mask_cubemap.jpg')[:, :, 1]
+
+        angles_eyes_cameras_0 = self.angles_eyes_cameras[:, :, 0]
+        angles_eyes_cameras_1 = self.angles_eyes_cameras[:, :, 1]
+        angles_eyes_cameras_2 = self.angles_eyes_cameras[:, :, 2]
+
+        angles_eyes_cameras_0 = np.where(mask_0 > 50, 100, angles_eyes_cameras_0)
+        angles_eyes_cameras_1 = np.where(mask_1 > 50, 100, angles_eyes_cameras_1)
+        angles_eyes_cameras_2 = np.where(mask_2 > 50, 100, angles_eyes_cameras_2)
+
+        self.angles_eyes_cameras[:, :, 0] = angles_eyes_cameras_0
+        self.angles_eyes_cameras[:, :, 1] = angles_eyes_cameras_1
+        self.angles_eyes_cameras[:, :, 2] = angles_eyes_cameras_2
+
+
+        # self.angles_eyes_cameras[173:256, 47:175, 0] = 100
+        # self.angles_eyes_cameras[173:320, 47:175, 0] = 100
+        #
+        # self.angles_eyes_cameras[346:456, 127:256, 1] = 100
+        #
+        # self.angles_eyes_cameras[173:256, 209:337, 2] = 100
+        # self.angles_eyes_cameras[173:320, 209:337, 2] = 100
+
+        # fig, axs = plt.subplots(1, 3)
+        # axs[0].imshow(self.angles_eyes_cameras[:, :, 0])
+        # axs[1].imshow(self.angles_eyes_cameras[:, :, 1])
+        # axs[2].imshow(self.angles_eyes_cameras[:, :, 2])
+        # plt.show()
+
+        self.angles_eyes_cameras = self.angles_eyes_cameras.reshape(angles_eyes_cameras_shape)
         self.calculate_minimum_angles_and_indexes_and_ratio()
 
     def calculate_minimum_angles_and_indexes_and_ratio(self):
@@ -123,112 +159,12 @@ class GeneratedPanorama:
                 :
             ]
 
-    # def generate_panorama(self, base_panorama_container):
-    #     height, width, channels = self.shape
-    #     self.data = np.zeros(self.shape).reshape((-1, 3))
-    #
-    #     for i in range(len(base_panorama_container)):
-    #         for j in range(self.cameras_to_keep):
-    #
-    #             index = np.argwhere(self.min_angles_indexes[:, j] == i)
-    #
-    #             xyz = np.squeeze(self.best_cameras_vectors[index, j, :])
-    #
-    #             u, v = base_panorama_container[i].envmap.world2image(xyz[:, 0], xyz[:, 1], xyz[:, 2])
-    #
-    #             u = (u * width).astype(np.int)
-    #             v = (v * height).astype(np.int)
-    #
-    #             u = np.where(u >= width, width - 1, u)
-    #             v = np.where(v >= height, height - 1, v)
-    #
-    #             self.data[index, :] += base_panorama_container[i].envmap.data[v, u, :][:, None]
-    #
-    #     self.data = (self.data.reshape(self.shape) * 255 / self.cameras_to_keep).astype(np.uint8)
-    #
-    #     self.write_data()
-    #
-    # def generate_panorama_temp(self, base_panorama_container, interpolated_base_panoramas):
-    #     print('temp1')
-    #
-    #     height, width, channels = self.shape
-    #     self.data = np.zeros(self.shape).reshape((-1, 3))
-    #
-    #     for i in range(len(base_panorama_container)):
-    #         for j in range(self.cameras_to_keep):
-    #             min_angles_index = np.argwhere(self.min_angles_indexes[:, j] == i)
-    #
-    #             min_angles_ratio = self.min_angles_ratio[min_angles_index, j]
-    #
-    #             xyz = np.squeeze(self.best_cameras_vectors[min_angles_index, j, :])
-    #
-    #             u, v = base_panorama_container[i].envmap.world2image(xyz[:, 0], xyz[:, 1], xyz[:, 2])
-    #
-    #             u = (u * width).astype(np.int)
-    #             v = (v * height).astype(np.int)
-    #
-    #             u = np.where(u >= width, width - 1, u)
-    #             v = np.where(v >= height, height - 1, v)
-    #             print('xyz =', xyz.shape)
-    #             print('u =', u.shape)
-    #             print('v =', v.shape)
-    #             print('angles index =', min_angles_index.shape)
-    #             print('angles ratio=', min_angles_ratio.shape)
-    #             print('')
-    #
-    #             # self.data[min_angles_index, :] += np.expand_dims(min_angles_ratio * base_panorama_container[i].envmap.data[v, u, :], axis=1)
-    #
-    #     # self.data = (self.data.reshape(self.shape) * 255).astype(np.uint8)
-    #     #
-    #     # self.write_data()
-    #
-    # def generate_panorama_temp_2(self, base_panorama_container, interpolated_base_panoramas):
-    #     height, width, channels = self.shape
-    #     self.data = np.zeros(self.shape).reshape((-1, 3))
-    #
-    #     for pair in interpolated_base_panoramas.keys():
-    #         pair_array = np.array(pair)
-    #         min_angles_index = np.argwhere(np.all(self.min_angles_indexes == pair_array, axis=1))
-    #
-    #         min_angles_ratio = np.squeeze(self.min_angles_ratio[min_angles_index])
-    #
-    #         min_angles_ratio = np.around(min_angles_ratio, decimals=2)
-    #
-    #         print('angles index =', min_angles_index.shape)
-    #         print('angles ratio=', min_angles_ratio.shape)
-    #
-    #         for i, index in enumerate(pair_array):
-    #             xyz = np.squeeze(self.best_cameras_vectors[min_angles_index, i, :])
-    #
-    #             u, v = base_panorama_container[index].envmap.world2image(xyz[:, 0], xyz[:, 1], xyz[:, 2])
-    #
-    #             u = (u * width).astype(np.int)
-    #             v = (v * height).astype(np.int)
-    #
-    #             u = np.where(u >= width, width - 1, u)
-    #             v = np.where(v >= height, height - 1, v)
-    #
-    #             for j in range(u.shape[0]):
-    #                 try:
-    #                     self.data[min_angles_index[j], :] += [min_angles_ratio[j, 0]] * interpolated_base_panoramas[pair][min_angles_ratio[j, 0]][i][v[j], u[j], :]
-    #                 except (KeyError, IndexError) as e:
-    #                     pass
-    #
-    #             # plt.imshow((self.data.reshape(self.shape) / 2).astype(np.uint8))
-    #             # plt.show()
-    #
-    #     self.data = (self.data.reshape(self.shape)).astype(np.uint8)
-    #     plt.imshow(self.data)
-    #     plt.show()
-    #
-    #     self.write_data()
-
-    def generate_panorama_temp_3(self, base_panorama_container, interpolated_base_panoramas):
+    def generate_panorama(self, base_panorama_container, interpolated_base_panoramas):
         height, width, channels = self.shape
         self.data = np.zeros(self.shape).reshape((-1, 3))
 
         min_angles_ratio_display = (self.min_angles_ratio[..., 0].reshape((self.shape[0], self.shape[1])) * 255).astype(np.uint8)
-        ratio_path = 'out/cube/1025/3/keep_2/ratio/' + self.side + '_' + str(self.rho) + '.jpg'
+        ratio_path = 'out/cube/1024/3/keep_2/real/ratio/' + self.side + '_' + str(self.rho) + '.jpg'
         plt.imsave(ratio_path, min_angles_ratio_display)
 
         angles_pair_display = np.zeros(self.shape, dtype=np.uint8)
@@ -244,7 +180,7 @@ class GeneratedPanorama:
 
         angles_pair_display = angles_pair_display.reshape(self.shape)
 
-        angles_pair_path = 'out/cube/1025/3/keep_2/pair/' + self.side + '_' + str(self.rho) + '.jpg'
+        angles_pair_path = 'out/cube/1024/3/keep_2/real/pair/' + self.side + '_' + str(self.rho) + '.jpg'
         plt.imsave(angles_pair_path, angles_pair_display)
 
         for pair in interpolated_base_panoramas.keys():
@@ -269,7 +205,6 @@ class GeneratedPanorama:
             for k in range(u.shape[0]):
                 try:
                     self.data[min_angles_index[k], :] = interpolated_base_panoramas[pair][min_angles_ratio[k, 0]][v[k], u[k], :]
-                    # self.data[min_angles_index[k], :] += min_angles_ratio[k, 0] * interpolated_base_panoramas[pair][min_angles_ratio[k, 0]][v[k], u[k], :]
                 except (KeyError, IndexError):
                     pass
 
@@ -335,7 +270,6 @@ class GeneratedPanoramaContainer:
 
         self.calculate_optical_flows_permutations()
         self.calculate_min_max_ratio_for_interpolation()
-        # self.get_interpolation_from_gt()
 
     def __getitem__(self, item):
         return self.generated_panoramas_dict[item]
@@ -353,9 +287,7 @@ class GeneratedPanoramaContainer:
         self.calculate_best_cameras_vectors()
 
         for side, generated_panorama in self.generated_panoramas_dict.items():
-            # generated_panorama.generate_panorama_temp(self.base_panorama_container, self.interpolated_base_panoramas)
-            # generated_panorama.generate_panorama_temp_2(self.base_panorama_container, self.interpolated_base_panoramas)
-            generated_panorama.generate_panorama_temp_3(self.base_panorama_container, self.interpolated_base_panoramas)
+            generated_panorama.generate_panorama(self.base_panorama_container, self.interpolated_base_panoramas)
 
     def set_rho_and_generate_panoramas(self, rho):
         self.rho = rho
@@ -451,39 +383,6 @@ class GeneratedPanoramaContainer:
 
             self.optical_flows[permutation_index] = opt_flow
 
-    # def interpolate_base_panoramas(self):
-    #     for panorama_pair_index, flow in self.optical_flows.items():
-    #         interpolation_path = self.base_out_path + 'flow/interpolation/' + str(panorama_pair_index[0]) + '_to_' + str(
-    #                 panorama_pair_index[1]) + '/'
-    #         Path(interpolation_path).mkdir(parents=True, exist_ok=True)
-    #
-    #         for alpha in np.around(np.linspace(0, 1, 11), 1):
-    #             base_pano_1 = self.base_panorama_container[panorama_pair_index[0]]
-    #             base_pano_2 = self.base_panorama_container[panorama_pair_index[1]]
-    #
-    #             split_flow = utils.split_cube(flow.flows[0])
-    #             shift_1 = {}
-    #             for face in utils.FACES:
-    #                 shift_1[face] = utils.shift_img(base_pano_1.extended_cubemap.extended[face], split_flow[face], alpha)
-    #             shift_1 = utils.build_cube(shift_1)
-    #
-    #             split_flow = utils.split_cube(flow.flows[1])
-    #             shift_2 = {}
-    #             for face in utils.FACES:
-    #                 shift_2[face] = utils.shift_img(base_pano_2.extended_cubemap.extended[face], split_flow[face],
-    #                                                 1 - alpha)
-    #             shift_2 = utils.build_cube(shift_2)
-    #
-    #             out = (1 - alpha) * shift_1 + alpha * shift_2
-    #
-    #             cv2.imwrite(interpolation_path + 'interpolated_' + str(alpha) + '.jpg', cv2.cvtColor(np.float32(out), cv2.COLOR_RGB2BGR))
-    #
-    #             out_extended_cube_map = ExtendedCubeMap(out, "Xcube", fov=base_pano_1.extended_cubemap.fov, w_original=base_pano_1.extended_cubemap.w_original)
-    #
-    #             out_clipped = out_extended_cube_map.get_clipped_cube()
-    #
-    #             cv2.imwrite(interpolation_path + 'clip_interpolated_' + str(alpha) + '.jpg', cv2.cvtColor(np.float32(out_clipped), cv2.COLOR_RGB2BGR))
-
     def calculate_min_max_ratio_for_interpolation(self):
         print("Starting interpolation")
 
@@ -520,10 +419,10 @@ class GeneratedPanoramaContainer:
                 shift_2 = {}
                 for face in utils.FACES:
                     shift_2[face] = utils.shift_img(base_pano_2.extended_cubemap.extended[face], split_flow[face],
-                                                    1 - ratio)
+                                                    1. - ratio)
                 shift_2 = utils.build_cube(shift_2)
 
-                out = (1 - ratio) * shift_1 + ratio * shift_2
+                out = (1. - ratio) * shift_1 + ratio * shift_2
 
                 out_extended_cube_map = ExtendedCubeMap(out, "Xcube", fov=base_pano_1.extended_cubemap.fov,
                                                         w_original=base_pano_1.extended_cubemap.w_original)
@@ -532,7 +431,7 @@ class GeneratedPanoramaContainer:
 
                 pair_dict[ratio] = out_clipped
 
-                cv2.imwrite('out/cube/1025/3/keep_2/interpolation/' + str(panorama_pair_index[0]) + '_' + str(
+                cv2.imwrite('out/cube/1024/3/keep_2/real/interpolation/' + str(panorama_pair_index[0]) + '_' + str(
                     panorama_pair_index[1]) + '/' + str(ratio) + '.jpg',
                             cv2.cvtColor(np.float32(out_clipped), cv2.COLOR_RGB2BGR))
 

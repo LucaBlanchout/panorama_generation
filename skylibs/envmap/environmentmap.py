@@ -300,6 +300,27 @@ class EnvironmentMap:
             # By default, number of rows
             targetDim = self.data.shape[0]
 
+        if self.format_ == 'cube' and targetFormat=='latlong':
+            shape = self.data.shape
+            square_width = shape[0] // 4
+
+            # top left
+            self.data[square_width - 1, :square_width] = self.data[:square_width, square_width]
+            self.data[:square_width, square_width - 1] = self.data[square_width, :square_width]
+            # top right
+            self.data[square_width - 1, 2 * square_width:] = self.data[:square_width, 2 * square_width - 1][::-1]
+            self.data[:square_width, 2 * square_width] = self.data[square_width, 2 * square_width:][::-1]
+            # middle left
+            self.data[2 * square_width, :square_width] = self.data[2 * square_width:3 * square_width, square_width][::-1]
+            self.data[2 * square_width:3 * square_width, square_width - 1] = self.data[2 * square_width, :square_width][::-1]
+            # middle right
+            self.data[2 * square_width, 2 * square_width:3 * square_width] = self.data[2 * square_width:3 * square_width, 2 * square_width - 1]
+            self.data[2 * square_width:3 * square_width, 2 * square_width] = self.data[2 * square_width - 1, 2 * square_width:3 * square_width]
+            # bottom left
+            self.data[3 * square_width:, square_width - 1] = self.data[square_width:2 * square_width, 0]
+            # bottom right
+            self.data[3 * square_width:, 2 * square_width] = self.data[square_width:2 * square_width, 3 * square_width - 1][::-1]
+
         eTmp = EnvironmentMap(targetDim, targetFormat)
         dx, dy, dz, valid = eTmp.worldCoordinates()
         u, v = self.world2image(dx, dy, dz)

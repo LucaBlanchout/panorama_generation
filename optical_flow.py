@@ -3,6 +3,8 @@ import utils
 import cv2
 import numpy as np
 from pathlib import Path
+from liteflownet import run
+import flowpy
 
 
 class OpticalFlow:
@@ -36,8 +38,8 @@ class OpticalFlow:
         flow = {}
         inv_flow = {}
         for face in utils.FACES:
-            grey_face_1 = cv2.cvtColor(self.pano_1_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
-            grey_face_2 = cv2.cvtColor(self.pano_2_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
+            # grey_face_1 = cv2.cvtColor(self.pano_1_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
+            # grey_face_2 = cv2.cvtColor(self.pano_2_extended_cubemap.extended[face].astype(np.uint8), cv2.COLOR_RGB2GRAY)
 
             # flow[face] = cv2.calcOpticalFlowFarneback(
             #     grey_face_1,
@@ -52,31 +54,40 @@ class OpticalFlow:
             #     flags=0
             # )
 
-            flow[face] = cv2.calcOpticalFlowFarneback(
-                grey_face_1,
-                grey_face_2,
-                None,
-                pyr_scale=0.5,
-                levels=5,
-                winsize=50,
-                iterations=20,
-                poly_n=7,
-                poly_sigma=1.5,
-                flags=0
-            )
+            # flow[face] = cv2.calcOpticalFlowFarneback(
+            #     grey_face_1,
+            #     grey_face_2,
+            #     None,
+            #     pyr_scale=0.5,
+            #     levels=5,
+            #     winsize=15,
+            #     iterations=20,
+            #     poly_n=7,
+            #     poly_sigma=1.5,
+            #     flags=0
+            # )
+            #
+            # inv_flow[face] = cv2.calcOpticalFlowFarneback(
+            #     grey_face_2,
+            #     grey_face_1,
+            #     None,
+            #     pyr_scale=0.5,
+            #     levels=5,
+            #     winsize=15,
+            #     iterations=20,
+            #     poly_n=7,
+            #     poly_sigma=1.5,
+            #     flags=0
+            # )
 
-            inv_flow[face] = cv2.calcOpticalFlowFarneback(
-                grey_face_2,
-                grey_face_1,
-                None,
-                pyr_scale=0.5,
-                levels=5,
-                winsize=50,
-                iterations=20,
-                poly_n=7,
-                poly_sigma=1.5,
-                flags=0
-            )
+            face_1 = self.pano_1_extended_cubemap.extended[face]
+            face_2 = self.pano_2_extended_cubemap.extended[face]
+
+            run.run(face_1, face_2)
+            flow[face] = flowpy.flow_read('liteflownet/out/out.flo')
+
+            run.run(face_2, face_1)
+            inv_flow[face] = flowpy.flow_read('liteflownet/out/out.flo')
 
         flow = utils.build_cube(flow)
         inv_flow = utils.build_cube(inv_flow)
